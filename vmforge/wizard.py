@@ -61,6 +61,17 @@ def encontrar_porta_livre(inicio=2223, fim=2299):
     raise ValueError("Nenhuma porta SSH disponível.")
 
 
+
+def planejar_finalizacao(criar_snapshot, manter_ligada):
+    """Define o comportamento de finalização da VM."""
+
+    return {
+        "desligar": criar_snapshot or not manter_ligada,
+        "snapshot": criar_snapshot,
+        "religar": criar_snapshot and manter_ligada,
+    }
+
+
 def wait_poweroff(vbox, name, seconds=90):
     end = time.monotonic() + seconds
     while time.monotonic() < end:
@@ -143,20 +154,43 @@ def create_wizard():
         # This first release intentionally does not upgrade 1,000+ packages without explicit opt-in.
         upgrade = yes('Executar atualização completa de pacotes agora? (pode ser demorado)')
         setup_lab(client, new_password, update=upgrade, create_folders=create_folders)
-        print('Etapa 8/8: desligando para salvar snapshot...')
-        shutdown_guest(client, new_password)
+        print('Etapa 8/8: finalizando configuração...')
+
+        criar_snapshot = yes(
+            'Criar snapshot inicial?',
+            default=True
+        )
+
+        manter_ligada = yes(
+            'Manter a máquina ligada ao finalizar?',
+            default=True
+        )
+
+        plano = planejar_finalizacao(
+            criar_snapshot,
+            manter_ligada
+        )
+
+        if plano["desligar"]:
+            shutdown_guest(client, new_password)
     finally:
         client.close()
-    wait_poweroff(vbox, name, seconds=180)
-    snapshot_name = 'VMForge-Lab-Preparado'
-    vbox.snapshot(name, snapshot_name)
-    keep_running = yes('Deseja manter a máquina ligada ao finalizar?')
-    if keep_running:
+
+    if plano["desligar"]:
+        wait_poweroff(vbox, name, seconds=180)
+
+    snapshot_name = None
+
+    if plano["snapshot"]:
+        snapshot_name = "VMForge-Inicial"
+        vbox.snapshot(name, snapshot_name)
+
+    if plano["religar"]:
         vbox.start(name)
     print('\nLABORATORIO CONFIGURADO')
     print(f'Maquina: {name}')
     print(f'Status: {vbox.status(name)}')
-    print(f'Snapshot: {snapshot_name}')
+    print(f'Snapshot: {snapshot_name or "não solicitado"}')
     print(f'Pastas de laboratório: {"criadas" if create_folders else "não solicitadas"}')
     print(f'Para conectar (com VM ligada): ssh -p {port} kali@127.0.0.1')
     if not upgrade:
