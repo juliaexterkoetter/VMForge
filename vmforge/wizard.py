@@ -23,6 +23,44 @@ def yes(prompt, default=False):
     return default if not answer else answer in ('s', 'sim', 'y', 'yes')
 
 
+
+def escolher_modo():
+    """Seleciona o modo de configuração."""
+
+    while True:
+        print("\n1. Configuração básica")
+        print("2. Configuração avançada")
+
+        escolha = input("Escolha [1]: ").strip()
+
+        if escolha in ("", "1"):
+            return "basico"
+
+        if escolha == "2":
+            return "avancado"
+
+        print("Opção inválida. Digite 1 ou 2.")
+
+
+def encontrar_porta_livre(inicio=2223, fim=2299):
+    """Sugere uma porta TCP local disponível."""
+    import socket
+
+    for porta in range(inicio, fim + 1):
+        with socket.socket(
+            socket.AF_INET,
+            socket.SOCK_STREAM
+        ) as sock:
+            try:
+                sock.bind(("127.0.0.1", porta))
+            except OSError:
+                continue
+
+            return porta
+
+    raise ValueError("Nenhuma porta SSH disponível.")
+
+
 def wait_poweroff(vbox, name, seconds=90):
     end = time.monotonic() + seconds
     while time.monotonic() < end:
@@ -42,9 +80,18 @@ def create_wizard():
     image = Path(ask('Caminho do arquivo .7z ou .vbox', '')).expanduser().resolve()
     default_destination = image.parent / 'VMForge-Kali-Lab'
     destination = Path(ask('Nova pasta de destino', str(default_destination))).expanduser().resolve()
-    ram = int(ask('RAM em MB', 4096))
-    cpus = int(ask('CPUs', 2))
-    port = int(ask('Porta SSH local', 2222))
+    modo = escolher_modo()
+    porta_sugerida = encontrar_porta_livre()
+
+    if modo == "basico":
+        ram = 4096
+        cpus = 2
+        port = porta_sugerida
+        print(f"Configuração básica: 4096 MB, 2 CPUs, SSH {port}.")
+    else:
+        ram = int(ask('RAM em MB', 4096))
+        cpus = int(ask('CPUs', 2))
+        port = int(ask('Porta SSH local', porta_sugerida))
     settings = Settings(image, destination, ram, cpus, port)
     validate(settings)
     print('\nResumo:')
