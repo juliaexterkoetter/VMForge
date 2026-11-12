@@ -27,17 +27,17 @@ def main(argv=None):
     subs = parser.add_subparsers(dest='action')
     subs.add_parser('check', help='Verificar Python e VirtualBox')
     subs.add_parser('list', help='Listar máquinas virtuais')
-    for action, description in [('status', 'Consultar status da VM'), ('start', 'Iniciar VM headless'), ('stop', 'Solicitar desligamento ACPI'), ('snapshot', 'Criar snapshot com VM desligada')]:
+    for action, description in [('status', 'Consultar status da VM'), ('start', 'Iniciar VM em segundo plano'), ('stop', 'Solicitar desligamento ACPI'), ('snapshot', 'Criar snapshot com VM desligada')]:
         sub = subs.add_parser(action, help=description)
         sub.add_argument('name', help='Nome ou UUID da VM')
         if action == 'snapshot':
             sub.add_argument('title', help='Nome do snapshot')
-    subs.add_parser('create', help='Assistente interativo para nova VM Kali VirtualBox')
+    subs.add_parser('create', help='Assistente de criação de máquina virtual (Kali/VirtualBox)')
     args = parser.parse_args(argv)
     try:
         if args.action is None:
-            print('VMForge - Menu')
-            print('1. Criar máquina virtual\n2. Listar VMs\n3. Verificar requisitos\n0. Sair')
+            print('VMForge - Menu principal')
+            print('1. Criar máquina virtual\n2. Listar máquinas virtuais\n3. Verificar requisitos\n0. Sair')
             choice = input('Escolha: ').strip()
             return {'1': lambda: create_wizard(), '2': lambda: main(['list']), '3': lambda: main(['check']), '0': lambda: 0}.get(choice, lambda: 2)()
         if args.action == 'check':
