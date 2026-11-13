@@ -32,7 +32,8 @@ def main(argv=None):
         sub.add_argument('name', help='Nome ou UUID da VM')
         if action == 'snapshot':
             sub.add_argument('title', help='Nome do snapshot')
-    subs.add_parser('create', help='Assistente de criação de máquina virtual (Kali/VirtualBox)')
+    create = subs.add_parser('create', help='Assistente de criação de máquina virtual (Kali/VirtualBox)')
+    create.add_argument('--dry-run', action='store_true', help='Mostrar plano sem modificar arquivos ou VMs')
     args = parser.parse_args(argv)
     try:
         if args.action is None:
@@ -43,7 +44,7 @@ def main(argv=None):
         if args.action == 'check':
             return check()
         if args.action == 'create':
-            return create_wizard()
+            return create_wizard(dry_run=args.dry_run)
         vb = VirtualBox()
         if args.action == 'list':
             vms = vb.list_vms()
@@ -56,9 +57,17 @@ def main(argv=None):
         elif args.action == 'start':
             print(vb.start(args.name))
         elif args.action == 'stop':
-            print(vb.shutdown(args.name))
+            from .wizard import yes
+            identity = vb.require_writable(args.name)
+            if not yes(f'Autoriza solicitar desligamento da VM {identity}?'):
+                return 0
+            print(vb.shutdown(identity))
         elif args.action == 'snapshot':
-            print(vb.snapshot(args.name, args.title))
+            from .wizard import yes
+            identity = vb.require_writable(args.name)
+            if not yes(f'Autoriza criar o snapshot {args.title} na VM {identity}?'):
+                return 0
+            print(vb.snapshot(identity, args.title))
         return 0
     except (ValueError, VMError, RuntimeError, OSError, EOFError, KeyboardInterrupt) as exc:
         print(f'Erro: {exc}', file=sys.stderr)
