@@ -23,6 +23,24 @@ def tearDownModule():
 
 
 class IsolationTests(unittest.TestCase):
+    def test_protected_template_name_is_renamed_in_copy(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            original_name = 'laboratorio-protegido'
+            for original_uuid in (PROTECTED_UUID, '10000000-0000-4000-8000-000000000001'):
+                with self.subTest(original_uuid=original_uuid):
+                    folder = root / original_uuid
+                    folder.mkdir()
+                    path = fixture(folder, identity=original_uuid)
+                    text = path.read_text(encoding='utf-8')
+                    self.assertEqual(text.count('name="Teste"'), 1)
+                    path.write_text(text.replace('name="Teste"', f'name="{original_name}"'), encoding='utf-8')
+                    new_appliance = isolate_new_image(path, folder)
+                    self.assertNotEqual(new_appliance['uuid'], original_uuid)
+                    self.assertNotEqual(new_appliance['name'].casefold(), original_name)
+                    self.assertTrue(new_appliance['name'].startswith('VMForge-Import-'))
+                    self.assertEqual(validate_appliance(path), new_appliance)
+
     def test_only_uuid_bytes_change_in_new_disk(self):
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
