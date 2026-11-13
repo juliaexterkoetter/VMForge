@@ -9,8 +9,7 @@ description = "CLI to configure VirtualBox Kali lab VMs through a keyboard-frien
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = ["paramiko>=3.4,<5"]
-license = "MIT"
-authors = [{name = "VMForge contributors"}]
+authors = [{name = "Júlia Schaden Exterkoetter"}]
 
 [project.scripts]
 vmforge = "vmforge.cli:main"

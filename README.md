@@ -85,7 +85,7 @@ A pasta de destino deve ser privada, sem outros processos alterando-a durante a 
 
 ## Preservação de máquinas existentes
 
-A VM de uso real `kali-linux-2026.3-virtualbox-amd64`, UUID `2d792251-94c7-41f0-95e5-5ebf008983b2`, está explicitamente protegida. Operações mutáveis consultam o UUID, inclusive se a VM foi renomeada. A porta 2222 é reservada e não é usada pelo assistente. Nunca selecione os arquivos ou diretórios dessa VM como destino.
+O VMForge possui proteções para evitar alterações acidentais em máquinas virtuais preexistentes. Operações mutáveis consultam o UUID, inclusive se a VM foi renomeada. O assistente evita portas reservadas para máquinas protegidas. Nunca selecione os arquivos ou diretórios dessa VM como destino.
 
 Conflitos de nome, UUID de máquina, UUID de disco e regras NAT são recusados. Portas de VMs desligadas também são consideradas. Não há exclusão automática de VMs nem rollback destrutivo. Se uma etapa falhar depois do registro, consulte `list` e `status`, preserve o diagnóstico e não repita a criação no mesmo destino.
 
@@ -119,4 +119,10 @@ Instale o wheel nesse ambiente e execute `python -I -m vmforge --version`, usand
 - Se houver timeout de Guest Additions/SSH, a VM fica preservada para diagnóstico. Não há garantia de retomada automática.
 - Atualizações podem demorar e exigir um boot posterior para ativar um novo kernel. Aplicativos gráficos do Kali precisam de avaliação de acessibilidade separada.
 
-Consulte [o roadmap](docs/ROADMAP.md) e [o registro de entregas](docs/ENTREGAS.md). Não há afiliação com Oracle ou Kali Linux. Licença MIT.
+Consulte [o roadmap](docs/ROADMAP.md) e [o registro de entregas](docs/ENTREGAS.md). Não há afiliação com Oracle ou Kali Linux.
+
+## Direitos autorais
+
+Copyright © 2026 Júlia Schaden Exterkoetter. Todos os direitos reservados.
+
+Este repositório é público para apresentação e consulta do código-fonte. Não é concedida autorização geral para utilizar, copiar, modificar ou redistribuir o software. Consulte [COPYRIGHT.md](COPYRIGHT.md).
