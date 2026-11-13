@@ -52,9 +52,8 @@ def prepare_image(settings):
         matches = list(settings.destination.rglob('*.vbox'))
         if len(matches) != 1:
             raise RuntimeError(f'Esperado exatamente um arquivo .vbox; encontrados: {len(matches)}.')
-        # Refuse unexpected guest images and avoid accidentally configuring another OS.
-        if not re.search(r'kali-linux', matches[0].name, re.I):
-            raise RuntimeError('Esta versao aceita apenas imagens oficiais do Kali Linux VirtualBox.')
+        from .appliance import validate_appliance
+        validate_appliance(matches[0])
         return matches[0]
     except Exception:
         # Retain the directory on failure so the user can inspect the files.

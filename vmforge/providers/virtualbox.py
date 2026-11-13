@@ -4,6 +4,7 @@ import re
 import shutil
 import subprocess
 from pathlib import Path
+from ..appliance import PROTECTED_UUID, PROTECTED_NAME, canonical_uuid, validate_appliance
 
 
 class VMError(RuntimeError):
@@ -31,6 +32,16 @@ class VirtualBox:
             raise VMError('VBoxManage não encontrado. Instale o Oracle VirtualBox.')
 
     def run(self, *args, timeout=90):
+        if not args:
+            raise VMError('Comando vazio.')
+        args = list(args)
+        action = args[0]
+        if action in ('modifyvm', 'startvm', 'controlvm', 'snapshot', 'guestcontrol'):
+            args[1] = self.require_writable(args[1])
+        elif action == 'registervm':
+            self.check_registration(args[1])
+        elif action not in ('--version', 'list', 'showvminfo'):
+            raise VMError('Operação não autorizada pelo provedor VMForge.')
         cmd = [str(self.binary), *map(str, args)]
         try:
             cp = subprocess.run(cmd, capture_output=True, text=True, errors='replace', timeout=timeout)
@@ -39,6 +50,31 @@ class VirtualBox:
         if cp.returncode:
             raise VMError((cp.stderr or cp.stdout or 'Erro desconhecido do VirtualBox').strip())
         return cp.stdout.strip()
+
+    def require_writable(self, target):
+        if str(target).strip('{}').lower() == PROTECTED_UUID or target == PROTECTED_NAME:
+            raise VMError('VM protegida: nenhuma alteração é permitida.')
+        info = self.info(target)
+        try:
+            identity = canonical_uuid(info.get('UUID'))
+        except ValueError as exc:
+            raise VMError(str(exc)) from exc
+        if identity == PROTECTED_UUID:
+            raise VMError('UUID protegido: nenhuma alteração é permitida.')
+        return identity
+
+    def check_registration(self, path):
+        try:
+            appliance = validate_appliance(path)
+        except (ValueError, OSError) as exc:
+            raise VMError(str(exc)) from exc
+        for existing in self.list_vms():
+            if canonical_uuid(existing['uuid']) == appliance['uuid'] or existing['name'].casefold() == appliance['name'].casefold():
+                raise VMError('Nome ou UUID já registrado. Nenhuma VM existente foi alterada.')
+        media = self.run('list', 'hdds')
+        if appliance['disk_uuid'].lower() in media.lower():
+            raise VMError('UUID de disco já registrado; use uma imagem independente.')
+        return appliance
 
     def version(self):
         return self.run('--version')
@@ -68,12 +104,13 @@ class VirtualBox:
     def configure(self, name, ram, cpus, port):
         if self.status(name) != 'poweroff':
             raise VMError('A VM precisa estar desligada para configurar recursos.')
-        self.run('modifyvm', name, '--memory', ram, '--cpus', cpus, '--nic1', 'nat')
         info = self.info(name)
         if 'ssh,tcp,' in '\n'.join(info.values()) or 'Forwarding(0)' in info:
             # Only the freshly imported VM should be configured by the wizard.
             raise VMError('A VM já possui redirecionamento de portas; a configuração existente será preservada.')
-        self.run('modifyvm', name, '--nat-pf1', f'vmforge-ssh,tcp,127.0.0.1,{port},,22')
+        if port == 2222:
+            raise VMError('Porta 2222 reservada para a VM protegida.')
+        self.run('modifyvm', name, '--memory', ram, '--cpus', cpus, '--nic1', 'nat', '--nat-pf1', f'vmforge-ssh,tcp,127.0.0.1,{port},,22')
 
     def start(self, name):
         state = self.status(name)
