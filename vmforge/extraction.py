@@ -193,7 +193,44 @@ def _ensure_owned_subdirectory(directory, destination, created_dirs):
             raise ValueError('Conflito com arquivo existente no destino.')
 
 
+def _display_size(bytes_count):
+    return f"{bytes_count / (1024 ** 3):.2f} GiB"
+
+
+def _watch_progress(target, total_size, completed_size, stop):
+    """Report progress without modifying extraction or reading the disk contents."""
+    import time
+
+    last_bucket = 0
+    last_message = time.monotonic()
+    while not stop.wait(2):
+        try:
+            current = min(target.stat().st_size, max(0, total_size - completed_size))
+        except FileNotFoundError:
+            current = 0
+        copied = completed_size + current
+        percentage = min(99, int(100 * copied / total_size)) if total_size else 0
+        bucket = percentage // 10
+        now = time.monotonic()
+        if bucket > last_bucket:
+            print(
+                f"Extração: {percentage}% — {_display_size(copied)} de {_display_size(total_size)}",
+                flush=True,
+            )
+            last_bucket = bucket
+            last_message = now
+        elif now - last_message >= 20:
+            print(
+                f"Extração em andamento: {_display_size(copied)} de {_display_size(total_size)}. "
+                "Aguardando novos dados do extrator...",
+                flush=True,
+            )
+            last_message = now
+
+
 def extract_archive(image, destination):
+    from threading import Event, Thread
+
     entries = inspect_archive(image)
     kind, executable = find_extractor()
     ancestor = destination.parent
@@ -208,7 +245,10 @@ def extract_archive(image, destination):
         destination.mkdir(parents=True, exist_ok=False)
     created_files = []
     created_dirs = []
-    print(f'Extrator: {kind} ({executable}). Espaço estimado: {required} bytes.')
+    total_size = sum(size for _, size, folder in entries if not folder)
+    completed_size = 0
+    print(f'Extrator: {kind} ({executable}). Espaço estimado: {required} bytes.', flush=True)
+    print(f'Iniciando extração de {_display_size(total_size)} em {destination}', flush=True)
     try:
         validate_destination(destination)
         for name, size, folder in entries:
@@ -220,7 +260,22 @@ def extract_archive(image, destination):
                 command = [executable, '-xOf', str(image.resolve()), '--', name]
             else:
                 command = [executable, 'x', '-so', '-spd', '-p-', '--', str(image.resolve()), name]
-            stream_entry(command, target, size, created_files=created_files)
+            print(f'Extraindo: {name} ({_display_size(size)})', flush=True)
+            stop = Event()
+            watcher = Thread(
+                target=_watch_progress,
+                args=(target, total_size, completed_size, stop),
+                daemon=True,
+            )
+            watcher.start()
+            try:
+                stream_entry(command, target, size, created_files=created_files)
+            finally:
+                stop.set()
+                watcher.join(timeout=3)
+            completed_size += size
+            print(f'Arquivo concluído: {name}', flush=True)
+        print(f'Extração concluída: 100% — {_display_size(total_size)}', flush=True)
     except BaseException:
         if created_destination:
             shutil.rmtree(destination)

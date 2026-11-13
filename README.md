@@ -71,6 +71,8 @@ ssh -p 2223 kali@127.0.0.1
 
 ## Extração e segurança
 
+Durante a extração, o terminal informa o arquivo atual, o total de dados, o avanço aproximado em porcentagem e mensagens periódicas de atividade. As atualizações são impressas em linhas separadas, facilitando a leitura com leitores de tela. O percentual corresponde aos bytes gravados no destino, não ao tempo restante, e não inclui as etapas posteriores de configuração.
+
 O **7-Zip é obrigatório para validar o manifesto**, mesmo quando o tar faz a extração. No Windows, o `tar.exe` nativo de `System32` tem preferência para ler o conteúdo. O tar do Git Bash não é selecionado. O 7-Zip instalado em Program Files é preferido ao PATH e sua interface é verificada.
 
 O manifesto deve conter somente diretórios, `.vbox` e `.vdi`: até 128 entradas e 128 GiB descompactados. A preparação exige exatamente um `.vbox` e um VDI independente. Caminhos absolutos, traversal, UNC, unidades Windows, nomes reservados, colisões e links identificados no manifesto são recusados antes da extração. Entradas criptografadas não são aceitas.
