@@ -124,8 +124,18 @@ Instale o wheel nesse ambiente e execute `python -I -m vmforge --version`, usand
 
 Consulte [o roadmap](docs/ROADMAP.md) e [o registro de entregas](docs/ENTREGAS.md). Não há afiliação com Oracle ou Kali Linux.
 
-## Direitos autorais
+## VMForge Community
 
-Copyright © 2026 Júlia Schaden Exterkoetter. Todos os direitos reservados.
+O VMForge Community é um projeto de código aberto sob a Apache License, Version 2.0. Melhorias, correções, testes e documentação podem ser propostas pela comunidade. Consulte [CONTRIBUTING.md](CONTRIBUTING.md).
 
-Este repositório é público para apresentação e consulta do código-fonte. Não é concedida autorização geral para utilizar, copiar, modificar ou redistribuir o software. Consulte [COPYRIGHT.md](COPYRIGHT.md).
+## VMForge Enterprise — planejado
+
+Uma futura linha comercial poderá conter funcionalidades adicionais privadas, personalizações e suporte empresarial. Essas funcionalidades não estão incluídas no repositório público. Consulte [Community e Enterprise](docs/COMMUNITY_ENTERPRISE.md).
+
+## Segurança
+
+Para relatar vulnerabilidades, consulte [SECURITY.md](SECURITY.md).
+
+## Licença
+
+Copyright © 2026 Júlia Schaden Exterkoetter. Licenciado sob Apache License, Version 2.0. Consulte [LICENSE](LICENSE), [NOTICE](NOTICE) e [COPYRIGHT.md](COPYRIGHT.md).
