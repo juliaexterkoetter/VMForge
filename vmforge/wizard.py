@@ -23,6 +23,55 @@ def yes(prompt, default=False):
     return default if not answer else answer in ('s', 'sim', 'y', 'yes')
 
 
+
+def escolher_modo():
+    """Seleciona o modo de configuração."""
+
+    while True:
+        print("\n1. Configuração básica")
+        print("2. Configuração avançada")
+
+        escolha = input("Escolha [1]: ").strip()
+
+        if escolha in ("", "1"):
+            return "basico"
+
+        if escolha == "2":
+            return "avancado"
+
+        print("Opção inválida. Digite 1 ou 2.")
+
+
+def encontrar_porta_livre(inicio=2223, fim=2299):
+    """Sugere uma porta TCP local disponível."""
+    import socket
+
+    for porta in range(inicio, fim + 1):
+        with socket.socket(
+            socket.AF_INET,
+            socket.SOCK_STREAM
+        ) as sock:
+            try:
+                sock.bind(("127.0.0.1", porta))
+            except OSError:
+                continue
+
+            return porta
+
+    raise ValueError("Nenhuma porta SSH disponível.")
+
+
+
+def planejar_finalizacao(criar_snapshot, manter_ligada):
+    """Define o comportamento de finalização da VM."""
+
+    return {
+        "desligar": criar_snapshot or not manter_ligada,
+        "snapshot": criar_snapshot,
+        "religar": criar_snapshot and manter_ligada,
+    }
+
+
 def wait_poweroff(vbox, name, seconds=90):
     end = time.monotonic() + seconds
     while time.monotonic() < end:
@@ -42,9 +91,18 @@ def create_wizard():
     image = Path(ask('Caminho do arquivo .7z ou .vbox', '')).expanduser().resolve()
     default_destination = image.parent / 'VMForge-Kali-Lab'
     destination = Path(ask('Nova pasta de destino', str(default_destination))).expanduser().resolve()
-    ram = int(ask('RAM em MB', 4096))
-    cpus = int(ask('CPUs', 2))
-    port = int(ask('Porta SSH local', 2222))
+    modo = escolher_modo()
+    porta_sugerida = encontrar_porta_livre()
+
+    if modo == "basico":
+        ram = 4096
+        cpus = 2
+        port = porta_sugerida
+        print(f"Configuração básica: 4096 MB, 2 CPUs, SSH {port}.")
+    else:
+        ram = int(ask('RAM em MB', 4096))
+        cpus = int(ask('CPUs', 2))
+        port = int(ask('Porta SSH local', porta_sugerida))
     settings = Settings(image, destination, ram, cpus, port)
     validate(settings)
     print('\nResumo:')
@@ -96,20 +154,43 @@ def create_wizard():
         # This first release intentionally does not upgrade 1,000+ packages without explicit opt-in.
         upgrade = yes('Executar atualização completa de pacotes agora? (pode ser demorado)')
         setup_lab(client, new_password, update=upgrade, create_folders=create_folders)
-        print('Etapa 8/8: desligando para salvar snapshot...')
-        shutdown_guest(client, new_password)
+        print('Etapa 8/8: finalizando configuração...')
+
+        criar_snapshot = yes(
+            'Criar snapshot inicial?',
+            default=True
+        )
+
+        manter_ligada = yes(
+            'Manter a máquina ligada ao finalizar?',
+            default=True
+        )
+
+        plano = planejar_finalizacao(
+            criar_snapshot,
+            manter_ligada
+        )
+
+        if plano["desligar"]:
+            shutdown_guest(client, new_password)
     finally:
         client.close()
-    wait_poweroff(vbox, name, seconds=180)
-    snapshot_name = 'VMForge-Lab-Preparado'
-    vbox.snapshot(name, snapshot_name)
-    keep_running = yes('Deseja manter a máquina ligada ao finalizar?')
-    if keep_running:
+
+    if plano["desligar"]:
+        wait_poweroff(vbox, name, seconds=180)
+
+    snapshot_name = None
+
+    if plano["snapshot"]:
+        snapshot_name = "VMForge-Inicial"
+        vbox.snapshot(name, snapshot_name)
+
+    if plano["religar"]:
         vbox.start(name)
     print('\nLABORATORIO CONFIGURADO')
     print(f'Maquina: {name}')
     print(f'Status: {vbox.status(name)}')
-    print(f'Snapshot: {snapshot_name}')
+    print(f'Snapshot: {snapshot_name or "não solicitado"}')
     print(f'Pastas de laboratório: {"criadas" if create_folders else "não solicitadas"}')
     print(f'Para conectar (com VM ligada): ssh -p {port} kali@127.0.0.1')
     if not upgrade:
