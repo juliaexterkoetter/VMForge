@@ -52,8 +52,8 @@ def prepare_image(settings):
         matches = list(settings.destination.rglob('*.vbox'))
         if len(matches) != 1:
             raise RuntimeError(f'Esperado exatamente um arquivo .vbox; encontrados: {len(matches)}.')
-        from .appliance import validate_appliance
-        validate_appliance(matches[0])
+        from .appliance import isolate_new_image
+        isolate_new_image(matches[0], settings.destination)
         return matches[0]
     except Exception:
         # Retain the directory on failure so the user can inspect the files.
