@@ -46,3 +46,6 @@ Thumbs.db
 *.nvram
 Snapshots/
 Logs/
+
+# Ambientes e intermediários de validação
+work/

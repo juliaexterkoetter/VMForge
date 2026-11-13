@@ -5,7 +5,7 @@ import sys
 from .providers.virtualbox import VirtualBox, VMError
 from .wizard import create_wizard
 
-VERSION = '0.1.1'
+from . import __version__ as VERSION
 
 
 def check():
