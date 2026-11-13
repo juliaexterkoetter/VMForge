@@ -1,23 +1,11 @@
 # Direitos autorais — VMForge
 
-Copyright (c) 2026 Júlia Schaden Exterkoetter.
-Todos os direitos reservados.
+Copyright © 2026 Júlia Schaden Exterkoetter.
 
-O VMForge é um projeto pessoal de desenvolvimento de software.
+O código do VMForge Community disponibilizado neste repositório é licenciado sob a Apache License, Version 2.0. Veja [LICENSE](LICENSE) e [NOTICE](NOTICE).
 
-O código-fonte é disponibilizado publicamente para apresentação,
-estudo e consulta de sua implementação.
+Cada colaborador mantém os direitos autorais de sua contribuição, sujeito às licenças aplicáveis. A licença do código Community permite utilização, modificação, redistribuição e comercialização por qualquer pessoa, observadas suas condições.
 
-Não é concedida, por esta publicação, autorização geral para
-utilizar, copiar, modificar, redistribuir, sublicenciar ou explorar
-comercialmente o software ou partes dele.
+A disponibilização do código Community não implica publicação ou licenciamento de funcionalidades e arquivos proprietários desenvolvidos separadamente para a linha Enterprise.
 
-A utilização do GitHub permanece sujeita aos termos da plataforma.
-
-Para solicitar autorização de uso, entre em contato com a autora.
-
-Esta declaração não revoga permissões anteriormente concedidas
-sobre versões distribuídas sob a licença MIT.
-
-Componentes e dependências de terceiros permanecem sujeitos
-às respectivas licenças.
+Esta alteração não revoga permissões válidas concedidas em versões anteriores, incluindo versões previamente disponibilizadas sob MIT. Dependências e componentes de terceiros permanecem sujeitos às respectivas licenças.
