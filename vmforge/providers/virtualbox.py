@@ -37,7 +37,17 @@ class VirtualBox:
             raise VMError('Comando vazio.')
         args = list(args)
         action = args[0]
-        if action in ('modifyvm', 'startvm', 'controlvm', 'snapshot', 'guestcontrol'):
+        if action in ('modifyvm', 'startvm', 'controlvm', 'snapshot'):
+            args[1] = self.require_writable(args[1])
+        elif action == 'guestcontrol':
+            # Only the minimal commands required for Kali bootstrap.
+            if (len(args) < 7 or args[2] != 'run' or
+                    '--exe' not in args or '--username' not in args or
+                    '--passwordfile' not in args):
+                raise VMError('Guest Control nao autorizado.')
+            executable = args[args.index('--exe') + 1]
+            if executable not in ('/usr/bin/id', '/usr/bin/whoami', '/bin/cat', '/bin/bash'):
+                raise VMError('Executavel Guest Control nao autorizado.')
             args[1] = self.require_writable(args[1])
         elif action == 'registervm':
             self.check_registration(args[1])
@@ -45,8 +55,8 @@ class VirtualBox:
             raise VMError('Operação não autorizada pelo provedor VMForge.')
         cmd = [str(self.binary), *map(str, args)]
         try:
-            cp = subprocess.run(cmd, capture_output=True, text=True, errors='replace', timeout=timeout)
-        except (OSError, subprocess.TimeoutExpired) as exc:
+            cp = subprocess.run(cmd, capture_output=True, text=True, encoding='utf-8', errors='strict', timeout=timeout)
+        except (OSError, UnicodeError, subprocess.TimeoutExpired) as exc:
             raise VMError(f'Falha ao executar VBoxManage: {exc}') from exc
         if cp.returncode:
             raise VMError((cp.stderr or cp.stdout or 'Erro desconhecido do VirtualBox').strip())
