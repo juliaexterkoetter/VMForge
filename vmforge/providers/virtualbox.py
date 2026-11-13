@@ -4,7 +4,8 @@ import re
 import shutil
 import subprocess
 from pathlib import Path
-from ..appliance import PROTECTED_UUID, PROTECTED_NAME, canonical_uuid, validate_appliance
+from ..appliance import canonical_uuid, validate_appliance
+from ..protection import load_protection, require_available_port
 
 
 class VMError(RuntimeError):
@@ -52,16 +53,37 @@ class VirtualBox:
         return cp.stdout.strip()
 
     def require_writable(self, target):
-        if str(target).strip('{}').lower() == PROTECTED_UUID or target == PROTECTED_NAME:
-            raise VMError('VM protegida: nenhuma alteração é permitida.')
-        info = self.info(target)
+        """Bloqueia alterações em máquinas protegidas."""
         try:
-            identity = canonical_uuid(info.get('UUID'))
+            protection = load_protection()
+            target = str(target)
+
+            if protection.protects_vm(name=target):
+                raise VMError("Máquina virtual protegida.")
+
+            try:
+                supplied_uuid = canonical_uuid(target)
+            except ValueError:
+                supplied_uuid = None
+
+            if supplied_uuid and protection.protects_vm(
+                uuid_value=supplied_uuid
+            ):
+                raise VMError("UUID protegido.")
+
+            info = self.info(target)
+            identity = canonical_uuid(info.get("UUID"))
+
+            if protection.protects_vm(
+                uuid_value=identity,
+                name=info.get("name")
+            ):
+                raise VMError("Máquina virtual protegida.")
+
+            return identity
+
         except ValueError as exc:
             raise VMError(str(exc)) from exc
-        if identity == PROTECTED_UUID:
-            raise VMError('UUID protegido: nenhuma alteração é permitida.')
-        return identity
 
     def check_registration(self, path):
         try:
@@ -108,8 +130,10 @@ class VirtualBox:
         if 'ssh,tcp,' in '\n'.join(info.values()) or 'Forwarding(0)' in info:
             # Only the freshly imported VM should be configured by the wizard.
             raise VMError('A VM já possui redirecionamento de portas; a configuração existente será preservada.')
-        if port == 2222:
-            raise VMError('Porta 2222 reservada para a VM protegida.')
+        try:
+            require_available_port(port)
+        except ValueError as exc:
+            raise VMError(str(exc)) from exc
         if network not in ('nat', 'none') or not 1024 <= ram <= 131072 or not 1 <= cpus <= 64 or not 1024 <= port <= 65535:
             raise VMError('Configuração de recursos ou rede inválida.')
         options = ['--memory', ram, '--cpus', cpus, '--nic1', network]

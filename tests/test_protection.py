@@ -4,7 +4,37 @@ import unittest
 import uuid
 from pathlib import Path
 from unittest.mock import patch, Mock
-from vmforge.appliance import validate_appliance, PROTECTED_UUID
+from vmforge.appliance import validate_appliance
+from vmforge.protection import ProtectionConfig
+
+PROTECTED_UUID = "11111111-2222-4333-8444-555555555555"
+
+TEST_PROTECTION = ProtectionConfig(
+    uuids=frozenset({PROTECTED_UUID}),
+    names=frozenset({"laboratorio-protegido"}),
+    ports=frozenset({2222}),
+)
+
+
+def setUpModule():
+    global protection_patch
+    protection_patch = patch(
+        "vmforge.protection.load_protection",
+        return_value=TEST_PROTECTION,
+    )
+    protection_patch.start()
+    global virtualbox_patch
+    virtualbox_patch = patch(
+        'vmforge.providers.virtualbox.load_protection',
+        return_value=TEST_PROTECTION,
+    )
+    virtualbox_patch.start()
+
+
+def tearDownModule():
+    virtualbox_patch.stop()
+    protection_patch.stop()
+
 from vmforge.providers.virtualbox import VirtualBox, VMError
 
 MACHINE = '10000000-0000-4000-8000-000000000001'
@@ -29,7 +59,7 @@ class ApplianceTests(unittest.TestCase):
 
     def test_protected_uuid(self):
         with tempfile.TemporaryDirectory() as td:
-            with self.assertRaisesRegex(ValueError, 'protegido'):
+            with self.assertRaisesRegex(ValueError, '[Pp]rotegid'):
                 validate_appliance(fixture(Path(td), identity=PROTECTED_UUID))
 
     def test_external_paths(self):

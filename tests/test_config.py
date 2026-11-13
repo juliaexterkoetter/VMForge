@@ -31,7 +31,7 @@ class SettingsTests(unittest.TestCase):
 class VirtualBoxTests(unittest.TestCase):
     def test_list_parse(self):
         vm = VirtualBox(binary='/fake/VBoxManage')
-        with patch.object(vm, 'run', return_value='"Kali-Lab" {2d792251-94c7-41f0-95e5-5ebf008983b2}\n'):
+        with patch.object(vm, 'run', return_value='"Kali-Lab" {10000000-0000-4000-8000-000000000001}\n'):
             self.assertEqual(vm.list_vms()[0]['name'], 'Kali-Lab')
 
     def test_start_does_not_repeat(self):
