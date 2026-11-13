@@ -101,7 +101,7 @@ class VirtualBox:
     def register(self, path):
         return self.run('registervm', path)
 
-    def configure(self, name, ram, cpus, port):
+    def configure(self, name, ram, cpus, port, network='nat'):
         if self.status(name) != 'poweroff':
             raise VMError('A VM precisa estar desligada para configurar recursos.')
         info = self.info(name)
@@ -110,7 +110,14 @@ class VirtualBox:
             raise VMError('A VM já possui redirecionamento de portas; a configuração existente será preservada.')
         if port == 2222:
             raise VMError('Porta 2222 reservada para a VM protegida.')
-        self.run('modifyvm', name, '--memory', ram, '--cpus', cpus, '--nic1', 'nat', '--nat-pf1', f'vmforge-ssh,tcp,127.0.0.1,{port},,22')
+        if network not in ('nat', 'none') or not 1024 <= ram <= 131072 or not 1 <= cpus <= 64 or not 1024 <= port <= 65535:
+            raise VMError('Configuração de recursos ou rede inválida.')
+        options = ['--memory', ram, '--cpus', cpus, '--nic1', network]
+        for index in range(2, 9):
+            options.extend([f'--nic{index}', 'none'])
+        if network == 'nat':
+            options.extend(['--nat-pf1', f'vmforge-ssh,tcp,127.0.0.1,{port},,22'])
+        self.run('modifyvm', name, *options)
 
     def start(self, name):
         state = self.status(name)

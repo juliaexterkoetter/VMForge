@@ -19,8 +19,8 @@ class Settings:
 
 
 def validate(settings):
-    if not settings.image.is_file() or settings.image.suffix.lower() not in ('.7z', '.vbox'):
-        raise ValueError('Informe um arquivo .7z ou .vbox existente.')
+    if not settings.image.is_file() or settings.image.suffix.lower() not in ('.7z',):
+        raise ValueError('Informe um arquivo .7z original existente.')
     if not 1024 <= settings.ram <= 131072:
         raise ValueError('RAM fora do intervalo de 1024 a 131072 MB.')
     if not 1 <= settings.cpus <= 64:
@@ -28,12 +28,12 @@ def validate(settings):
     if not 1024 <= settings.port <= 65535:
         raise ValueError('A porta SSH precisa estar entre 1024 e 65535.')
     if settings.destination.exists():
-        raise ValueError('A pasta de destino ja existe. Escolha outra pasta vazia/inexistente.')
+        raise ValueError('A pasta de destino já existe. Escolha outra pasta inexistente.')
     with socket.socket() as sock:
         try:
             sock.bind(('127.0.0.1', settings.port))
         except OSError as exc:
-            raise ValueError(f'Porta local {settings.port} indisponivel.') from exc
+            raise ValueError(f'Porta local {settings.port} indisponível.') from exc
     if settings.image.suffix.lower() == '.vbox' and settings.destination.resolve() == settings.image.parent.resolve():
         raise ValueError('O destino precisa ser diferente da pasta de origem.')
 
