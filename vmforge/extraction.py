@@ -118,9 +118,11 @@ def inspect_archive(image):
     return parse_manifest(cp.stdout.replace('\r\n', '\n'))
 
 
-def stream_entry(command, target, expected, timeout=900):
+def stream_entry(command, target, expected, timeout=900, created_files=None):
     """Never let archive tools choose output paths; bound streamed bytes and time."""
     with target.open('xb') as output, tempfile.TemporaryFile() as errors:
+        if created_files is not None:
+            created_files.append(target)
         with subprocess.Popen(command, stdout=subprocess.PIPE, stderr=errors, stdin=subprocess.DEVNULL) as proc:
             # Reader thread permits timeout even if the child stops producing output.
             import threading
@@ -156,6 +158,41 @@ def stream_entry(command, target, expected, timeout=900):
                 raise RuntimeError(f'Extrator falhou (código {proc.returncode}).')
 
 
+def validate_destination(destination):
+    """Allow a new directory or an existing, genuinely empty directory.
+
+    Never treat a symlink or Windows junction as an owned destination.
+    """
+    destination = Path(destination)
+    current = destination
+    while True:
+        if current.is_symlink() or (hasattr(current, 'is_junction') and current.is_junction()):
+            raise ValueError('O destino não pode conter links simbólicos ou junctions.')
+        if current.parent == current:
+            break
+        current = current.parent
+    if destination.exists():
+        if not destination.is_dir():
+            raise ValueError('O destino existente não é uma pasta.')
+        if any(destination.iterdir()):
+            raise ValueError('A pasta de destino não está vazia. Escolha uma pasta vazia ou inexistente.')
+
+
+def _ensure_owned_subdirectory(directory, destination, created_dirs):
+    """Create only missing descendants; never follow symlinks in the target tree."""
+    relative = directory.relative_to(destination)
+    current = destination
+    for part in relative.parts:
+        current = current / part
+        if current.is_symlink() or (hasattr(current, 'is_junction') and current.is_junction()):
+            raise ValueError('Diretório interno inseguro.')
+        if not current.exists():
+            current.mkdir()
+            created_dirs.append(current)
+        elif not current.is_dir():
+            raise ValueError('Conflito com arquivo existente no destino.')
+
+
 def extract_archive(image, destination):
     entries = inspect_archive(image)
     kind, executable = find_extractor()
@@ -165,23 +202,34 @@ def extract_archive(image, destination):
     required = sum(size for _, size, _ in entries) + 512 * 1024**2
     if shutil.disk_usage(ancestor).free < required:
         raise ValueError(f'Espaço insuficiente: necessários {required} bytes, incluindo margem.')
-    if destination.exists():
-        raise ValueError('A pasta de destino já existe.')
-    destination.mkdir(parents=True, exist_ok=False)
+    validate_destination(destination)
+    created_destination = not destination.exists()
+    if created_destination:
+        destination.mkdir(parents=True, exist_ok=False)
+    created_files = []
+    created_dirs = []
     print(f'Extrator: {kind} ({executable}). Espaço estimado: {required} bytes.')
     try:
+        validate_destination(destination)
         for name, size, folder in entries:
             target = destination.joinpath(*name.split('/'))
+            _ensure_owned_subdirectory(target if folder else target.parent, destination, created_dirs)
             if folder:
-                target.mkdir(parents=True, exist_ok=True)
                 continue
-            target.parent.mkdir(parents=True, exist_ok=True)
             if kind == 'tar':
                 command = [executable, '-xOf', str(image.resolve()), '--', name]
             else:
                 command = [executable, 'x', '-so', '-spd', '-p-', '--', str(image.resolve()), name]
-            stream_entry(command, target, size)
+            stream_entry(command, target, size, created_files=created_files)
     except BaseException:
-        # Only this newly created disposable destination is removed, never the source.
-        shutil.rmtree(destination)
+        if created_destination:
+            shutil.rmtree(destination)
+        else:
+            for file in reversed(created_files):
+                file.unlink(missing_ok=True)
+            for directory in reversed(created_dirs):
+                try:
+                    directory.rmdir()
+                except OSError:
+                    pass
         raise

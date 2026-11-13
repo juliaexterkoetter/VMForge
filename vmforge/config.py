@@ -27,8 +27,8 @@ def validate(settings):
         raise ValueError('Quantidade de CPUs fora do intervalo de 1 a 64.')
     if not 1024 <= settings.port <= 65535:
         raise ValueError('A porta SSH precisa estar entre 1024 e 65535.')
-    if settings.destination.exists():
-        raise ValueError('A pasta de destino já existe. Escolha outra pasta inexistente.')
+    from .extraction import validate_destination
+    validate_destination(settings.destination)
     with socket.socket() as sock:
         try:
             sock.bind(('127.0.0.1', settings.port))

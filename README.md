@@ -41,7 +41,7 @@ python -B -m vmforge create --dry-run
 python -m vmforge create
 ```
 
-O assistente solicita a imagem, um destino inexistente, o nome da VM e o modo básico ou avançado. O básico usa 4096 MB, 2 CPUs, NAT e uma porta local disponível a partir de 2223. O avançado permite escolher recursos, porta e NAT ou rede desconectada.
+O assistente solicita a imagem, uma pasta de destino inexistente ou já existente e vazia, o nome da VM e o modo básico ou avançado. O básico usa 4096 MB, 2 CPUs, NAT e uma porta local disponível a partir de 2223. O avançado permite escolher recursos, porta e NAT ou rede desconectada.
 
 Antes da confirmação são escolhidos: início da VM, configuração SSH, pastas de laboratório, atualização de pacotes, snapshot e estado final ligado/desligado. Pastas, atualização e snapshot são opcionais. O plano completo aparece antes da autorização. Uma resposta negativa cancela sem criar arquivos ou VMs. Senhas só são solicitadas na execução autorizada, antes da preparação da imagem.
 
@@ -75,13 +75,13 @@ O **7-Zip é obrigatório para validar o manifesto**, mesmo quando o tar faz a e
 
 O manifesto deve conter somente diretórios, `.vbox` e `.vdi`: até 128 entradas e 128 GiB descompactados. A preparação exige exatamente um `.vbox` e um VDI independente. Caminhos absolutos, traversal, UNC, unidades Windows, nomes reservados, colisões e links identificados no manifesto são recusados antes da extração. Entradas criptografadas não são aceitas.
 
-Cada arquivo é recebido por stdout, com limite de tamanho e tempo, e gravado pelo Python com criação exclusiva. O extrator não escolhe os caminhos de saída. A origem é aberta somente para leitura; um destino existente nunca é reutilizado. Falhas durante a extração removem somente o destino novo criado pela chamada. Falhas posteriores preservam os arquivos para diagnóstico e não são anunciadas como conclusão.
+Cada arquivo é recebido por stdout, com limite de tamanho e tempo, e gravado pelo Python com criação exclusiva. O extrator não escolhe os caminhos de saída. A origem é aberta somente para leitura. O destino pode não existir ou ser uma pasta já existente e vazia. Pastas que contenham arquivos, inclusive ocultos, são recusadas; links simbólicos e junctions no caminho também são recusados. Falhas na extração removem o destino somente quando ele foi criado pelo VMForge; quando a pasta já existia vazia, preservam a pasta e removem apenas arquivos e subpastas criados pela extração. Falhas posteriores preservam os arquivos para diagnóstico e não são anunciadas como conclusão.
 
 O XML não aceita entidades/DTD, referências externas, snapshots existentes, discos diferenciais, pastas compartilhadas ou mídias externas. O cabeçalho VDI e sua identidade são verificados; isso não verifica o sistema de arquivos do convidado. A geração de nova identidade altera apenas a cópia recém-extraída. O layout VDI 1.1 foi conferido no [código oficial do VirtualBox](https://github.com/VirtualBox/virtualbox/blob/main/src/VBox/Storage/VDICore.h).
 
 **WinRAR não tem adaptador validado neste projeto.** WinRAR, Rar.exe e UnRAR.exe não são utilizados automaticamente para `.7z`; código de retorno de uma interface gráfica não comprova extração. Importação direta de `.vbox` permanece bloqueada. Use o arquivo `.7z` original.
 
-A pasta de destino deve ser privada, sem outros processos alterando-a durante a execução. O programa não é uma sandbox para executáveis comprometidos e não impõe cotas de memória ao extrator. Os limites de tamanho não substituem a confiança na ferramenta e na origem.
+A pasta de destino deve ser privada, sem outros processos alterando-a durante a execução. O suporte a pasta vazia não garante isolamento contra alterações concorrentes no sistema de arquivos. O programa não é uma sandbox para executáveis comprometidos e não impõe cotas de memória ao extrator. Os limites de tamanho não substituem a confiança na ferramenta e na origem.
 
 ## Preservação de máquinas existentes
 
