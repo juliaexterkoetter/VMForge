@@ -15,7 +15,7 @@ class Settings:
     destination: Path
     ram: int = 4096
     cpus: int = 2
-    port: int = 2222
+    port: int = 2223
 
 
 def validate(settings):
@@ -38,32 +38,17 @@ def validate(settings):
         raise ValueError('O destino precisa ser diferente da pasta de origem.')
 
 
-def sevenzip_path():
-    for cmd in ('7z', '7zz', '7za', '7z.exe'):
-        found = shutil.which(cmd)
-        if found:
-            return found
-    if os.name == 'nt':
-        for root in (os.environ.get('ProgramFiles'), os.environ.get('ProgramFiles(x86)')):
-            if root:
-                loc = Path(root) / '7-Zip' / '7z.exe'
-                if loc.is_file():
-                    return str(loc)
-    raise RuntimeError('7-Zip não encontrado. Instale o 7-Zip ou utilize um arquivo .vbox extraído.')
+from .extraction import find_extractor, sevenzip_path, extract_archive
 
 
 def prepare_image(settings):
     """Copy/import a trusted VirtualBox appliance. Never modify the original."""
     validate(settings)
-    settings.destination.mkdir(parents=True, exist_ok=False)
     try:
         if settings.image.suffix.lower() == '.7z':
-            sevenzip = sevenzip_path()
-            cp = subprocess.run([sevenzip, 'x', '-y', str(settings.image.resolve()), '-o' + str(settings.destination.resolve())], capture_output=True, text=True, errors='replace', timeout=900)
-            if cp.returncode:
-                raise RuntimeError((cp.stderr or cp.stdout)[-1000:])
+            extract_archive(settings.image, settings.destination)
         else:
-            shutil.copytree(settings.image.parent, settings.destination, dirs_exist_ok=True)
+            raise ValueError('Importação direta de .vbox bloqueada até validar referências externas; utilize o .7z original.')
         matches = list(settings.destination.rglob('*.vbox'))
         if len(matches) != 1:
             raise RuntimeError(f'Esperado exatamente um arquivo .vbox; encontrados: {len(matches)}.')
