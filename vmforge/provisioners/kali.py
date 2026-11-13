@@ -87,16 +87,39 @@ def remote_sudo(client, sudo_password, command, input_text='', timeout=900):
     stdin.write(sudo_password + '\n' + input_text)
     stdin.flush()
     stdin.channel.shutdown_write()
-    out = stdout.read().decode('utf-8', 'replace')
-    err = stderr.read().decode('utf-8', 'replace')
-    code = stdout.channel.recv_exit_status()
+    channel = stdout.channel
+    deadline = time.monotonic() + timeout
+    output, errors = bytearray(), bytearray()
+    try:
+        while True:
+            if time.monotonic() >= deadline:
+                raise ProvisionError('Tempo limite excedido no comando remoto.')
+            received = False
+            if channel.recv_ready():
+                output.extend(channel.recv(65536))
+                received = True
+            if channel.recv_stderr_ready():
+                errors.extend(channel.recv_stderr(65536))
+                received = True
+            if len(output) + len(errors) > 8 * 1024**2:
+                raise ProvisionError('Saída do comando remoto excedeu o limite de 8 MiB.')
+            if channel.exit_status_ready() and not channel.recv_ready() and not channel.recv_stderr_ready():
+                break
+            if not received:
+                time.sleep(0.05)
+        code = channel.recv_exit_status()
+    finally:
+        channel.close()
+    out = output.decode('utf-8', 'replace')
+    err = errors.decode('utf-8', 'replace')
     if code:
-        raise ProvisionError(f'Comando remoto falhou (codigo {code}): {(err or out)[-450:]}')
+        detail = (err or out).replace(sudo_password, '[senha omitida]')[-450:]
+        raise ProvisionError(f'Comando remoto falhou (código {code}): {detail}')
     return out
 
 
 def change_password(client, initial, new):
-    if not new or '\n' in new or ':' in new:
+    if not new or any(c in new for c in '\r\n:'):
         raise ProvisionError('Senha inválida: não pode ser vazia nem conter dois-pontos ou quebras de linha.')
     remote_sudo(client, initial, '/usr/sbin/chpasswd', 'kali:' + new + '\n')
 
