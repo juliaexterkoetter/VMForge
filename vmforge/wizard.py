@@ -165,7 +165,44 @@ def collect_plan():
                         start, provision, folders, upgrade, snapshot, keep)
 
 
-def execute_plan(plan, vbox):
+def validate_recovery_plan(plan, vbox, path):
+    """Validate a pre-extracted independent copy without requiring an empty directory."""
+    import socket
+    from .recovery import _check_copy
+    from .appliance import canonical_uuid
+    from .protection import require_available_port
+    app = _check_copy(path, plan.settings.destination)
+    if not re.fullmatch(r'[\w .-]{1,80}', plan.name) or plan.name.endswith(('.', ' ')):
+        raise ValueError('Nome final invalido.')
+    require_unprotected(name=plan.name)
+    require_available_port(plan.settings.port)
+    if not 1024 <= plan.settings.ram <= 131072 or not 1 <= plan.settings.cpus <= 64:
+        raise ValueError('RAM ou CPU fora dos limites.')
+    if not 1024 <= plan.settings.port <= 65535:
+        raise ValueError('Porta fora dos limites.')
+    if plan.network != 'nat' or not plan.start or not plan.provision:
+        raise ValueError('A recuperacao exige inicio e rede NAT/SSH.')
+    with socket.socket() as sock:
+        try:
+            sock.bind(('127.0.0.1', plan.settings.port))
+        except OSError as exc:
+            raise ValueError('Porta local ocupada.') from exc
+    for existing in vbox.list_vms():
+        if canonical_uuid(existing['uuid']) == app['uuid']:
+            raise ValueError('Copia ja registrada. Nao e seguro repetir o recovery.')
+        if existing['name'].casefold() == plan.name.casefold():
+            raise ValueError('Nome ja registrado.')
+        info = vbox.info(existing['uuid'])
+        for key, value in info.items():
+            if key.startswith('Forwarding('):
+                parts = value.split(',')
+                if len(parts) >= 4 and parts[3] == str(plan.settings.port):
+                    raise ValueError('Porta SSH ja reservada por VM registrada.')
+    if app['disk_uuid'].casefold() in vbox.run('list', 'hdds').casefold():
+        raise ValueError('UUID do VDI ja registrado.')
+
+
+def execute_plan(plan, vbox, prepared_path=None):
     """Caller must obtain explicit confirmation after displaying the full plan."""
     password = None
     if plan.provision:
@@ -173,10 +210,22 @@ def execute_plan(plan, vbox):
         confirm = getpass.getpass('Repita a nova senha: ')
         if password != confirm or len(password) < 12 or any(c in password for c in '\r\n:'):
             raise ValueError('Senha inválida ou confirmação diferente. Nada foi criado.')
-    validate_plan(plan, vbox)
+    if prepared_path is None:
+        validate_plan(plan, vbox)
+    else:
+        validate_recovery_plan(plan, vbox, prepared_path)
     phase = 'preparação da imagem'
     try:
-        path = prepare_image(plan.settings)
+        path = prepare_image(plan.settings) if prepared_path is None else Path(prepared_path)
+        # Recovery is allowed only on a separately validated copy. Its old template
+        # name can be protected; rename it *before* normal validation.
+        if prepared_path is not None:
+            recovered = validate_appliance(path, template=True)
+            require_unprotected(uuid_value=recovered['uuid'])
+            tree = ET.parse(path)
+            machine = next(e for e in tree.getroot().iter() if e.tag.rsplit('}', 1)[-1] == 'Machine')
+            machine.set('name', plan.name)
+            write_appliance(tree, path)
         appliance = validate_appliance(path)
         identity = appliance['uuid']
         tree = ET.parse(path)

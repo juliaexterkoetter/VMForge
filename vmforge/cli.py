@@ -34,6 +34,17 @@ def main(argv=None):
             sub.add_argument('title', help='Nome do snapshot')
     create = subs.add_parser('create', help='Assistente de criação de máquina virtual (Kali/VirtualBox)')
     create.add_argument('--dry-run', action='store_true', help='Mostrar plano sem modificar arquivos ou VMs')
+    subs.add_parser('recover', help='Recuperar VM extraida com UUIDs validados')
+    subs.add_parser('purge-test', help='Excluir VM de teste registrada com confirmacao forte')
+    # Forward recovery-specific options without argparse consuming them.
+    argv = sys.argv[1:] if argv is None else argv
+    if argv and argv[0] in ('recover', 'purge-test'):
+        from .recovery import recover_main, purge_main
+        try:
+            return (recover_main if argv[0] == 'recover' else purge_main)(argv[1:])
+        except (ValueError, VMError, RuntimeError, OSError, EOFError, KeyboardInterrupt) as exc:
+            print(f'Erro: {exc}', file=sys.stderr)
+            return 1
     args = parser.parse_args(argv)
     try:
         if args.action is None:
