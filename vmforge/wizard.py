@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from .config import Settings, prepare_image, validate
 from .extraction import inspect_archive
-from .appliance import PROTECTED_NAME, validate_appliance
+from .appliance import PROTECTED_NAME, validate_appliance, write_appliance
 from .providers.virtualbox import VirtualBox, VMError
 from .provisioners.kali import bootstrap_ssh, change_password, connect_ssh, setup_lab, shutdown_guest, wait_guest
 
@@ -180,7 +180,7 @@ def execute_plan(plan, vbox):
         tree = ET.parse(path)
         machine = next(e for e in tree.getroot().iter() if e.tag.rsplit('}', 1)[-1] == 'Machine')
         machine.set('name', plan.name)
-        tree.write(path, encoding='utf-8', xml_declaration=True)
+        write_appliance(tree, path)
         phase = 'registro'
         vbox.register(path)
         # Use the exact validated UUID; never infer identity by a list difference.

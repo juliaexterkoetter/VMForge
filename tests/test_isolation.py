@@ -22,6 +22,8 @@ class IsolationTests(unittest.TestCase):
             self.assertEqual(before[408:], after[408:])
             self.assertNotEqual(before[392:408], after[392:408])
             self.assertEqual(validate_appliance(path), result)
+            self.assertIn('xmlns="http://www.virtualbox.org/"', path.read_text())
+            self.assertNotIn('ns0:', path.read_text())
 
     def test_outside_destination_untouched(self):
         with tempfile.TemporaryDirectory() as td:

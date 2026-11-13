@@ -110,5 +110,12 @@ def isolate_new_image(path, destination):
         stream.flush()
         os.fsync(stream.fileno())
     # Any failure leaves an unregistered, visibly incomplete destination.
-    tree.write(path, encoding='utf-8', xml_declaration=True)
+    write_appliance(tree, path)
     return validate_appliance(path)
+
+
+def write_appliance(tree, path):
+    root = tree.getroot()
+    if root.tag.startswith('{'):
+        ET.register_namespace('', root.tag[1:].split('}', 1)[0])
+    tree.write(path, encoding='utf-8', xml_declaration=True)
