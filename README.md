@@ -85,6 +85,9 @@ A pasta de destino deve ser privada, sem outros processos alterando-a durante a 
 
 ## Preservação de máquinas existentes
 
+As máquinas e portas protegidas são definidas em [configuração local de proteção](docs/PROTECAO_LOCAL.md). Antes de utilizar comandos de alteração, crie o arquivo de configuração particular. A ausência de uma configuração válida bloqueia operações que dependem dessa proteção.
+
+
 O VMForge possui proteções para evitar alterações acidentais em máquinas virtuais preexistentes. Operações mutáveis consultam o UUID, inclusive se a VM foi renomeada. O assistente evita portas reservadas para máquinas protegidas. Nunca selecione os arquivos ou diretórios dessa VM como destino.
 
 Conflitos de nome, UUID de máquina, UUID de disco e regras NAT são recusados. Portas de VMs desligadas também são consideradas. Não há exclusão automática de VMs nem rollback destrutivo. Se uma etapa falhar depois do registro, consulte `list` e `status`, preserve o diagnóstico e não repita a criação no mesmo destino.

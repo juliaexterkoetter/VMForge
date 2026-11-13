@@ -17,6 +17,17 @@ class TestarModos(unittest.TestCase):
             self.assertEqual(escolher_modo(), "basico")
 
     def test_porta(self):
-        porta = encontrar_porta_livre()
+        from vmforge.protection import ProtectionConfig
+
+        config = ProtectionConfig(
+            uuids=frozenset(),
+            names=frozenset(),
+            ports=frozenset({2222}),
+        )
+
+        with patch("vmforge.wizard.load_protection", return_value=config):
+            porta = encontrar_porta_livre()
+
         self.assertGreaterEqual(porta, 2223)
         self.assertLessEqual(porta, 2299)
+        self.assertNotIn(porta, config.ports)

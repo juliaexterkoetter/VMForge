@@ -5,8 +5,7 @@ import uuid
 import xml.etree.ElementTree as ET
 from .extraction import safe_path
 
-PROTECTED_UUID = '2d792251-94c7-41f0-95e5-5ebf008983b2'
-PROTECTED_NAME = 'kali-linux-2026.3-virtualbox-amd64'
+from .protection import require_unprotected
 
 
 def canonical_uuid(value):
@@ -33,8 +32,8 @@ def validate_appliance(path, *, template=False):
         raise ValueError('Esperada uma única máquina no .vbox.')
     machine = machines[0]
     machine_uuid = canonical_uuid(machine.get('uuid'))
-    if machine_uuid == PROTECTED_UUID and not template:
-        raise ValueError('UUID protegido: a VM existente não pode ser importada ou alterada.')
+    if not template:
+        require_unprotected(machine_uuid, machine.get('name', ''))
     disks = [e for e in root.iter() if local(e) == 'HardDisk']
     if len(disks) != 1 or disks[0].get('format', '').upper() != 'VDI':
         raise ValueError('Apenas uma imagem VDI independente é suportada.')

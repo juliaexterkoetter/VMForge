@@ -7,11 +7,23 @@ from unittest.mock import Mock, patch
 from vmforge.config import Settings
 from vmforge.wizard import CreationPlan, create_wizard, execute_plan, validate_plan, yes
 from vmforge.cli import main
-from test_protection import fixture, MACHINE
+from test_protection import fixture, MACHINE, TEST_PROTECTION
 
 
 class WizardTests(unittest.TestCase):
     def setUp(self):
+        protection_patch = patch(
+            'vmforge.protection.load_protection',
+            return_value=TEST_PROTECTION,
+        )
+        protection_patch.start()
+        self.addCleanup(protection_patch.stop)
+        wizard_patch = patch(
+            'vmforge.wizard.load_protection',
+            return_value=TEST_PROTECTION,
+        )
+        wizard_patch.start()
+        self.addCleanup(wizard_patch.stop)
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name)

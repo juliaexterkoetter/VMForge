@@ -8,7 +8,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from .config import Settings, prepare_image, validate
 from .extraction import inspect_archive
-from .appliance import PROTECTED_NAME, validate_appliance, write_appliance
+from .appliance import validate_appliance, write_appliance
+from .protection import load_protection, require_unprotected, require_available_port
 from .providers.virtualbox import VirtualBox, VMError
 from .provisioners.kali import bootstrap_ssh, change_password, connect_ssh, setup_lab, shutdown_guest, wait_guest
 
@@ -44,7 +45,10 @@ def escolher_modo():
 
 def encontrar_porta_livre(inicio=2223, fim=2299):
     import socket
+    protection = load_protection()
     for porta in range(inicio, fim + 1):
+        if protection.reserves_port(porta):
+            continue
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
             try:
                 sock.bind(('127.0.0.1', porta))
@@ -102,10 +106,8 @@ def validate_plan(plan, vbox):
     validate(plan.settings)
     if not re.fullmatch(r'[\w .-]{1,80}', plan.name) or plan.name.endswith(('.', ' ')):
         raise ValueError('Nome inválido: use até 80 letras, números, espaços, pontos, hífens ou sublinhados.')
-    if plan.name.casefold() == PROTECTED_NAME.casefold():
-        raise ValueError('Nome reservado para a VM protegida.')
-    if plan.settings.port == 2222:
-        raise ValueError('Porta 2222 reservada para a VM protegida.')
+    require_unprotected(name=plan.name)
+    require_available_port(plan.settings.port)
     if plan.network not in ('nat', 'none') or (plan.provision and (not plan.start or plan.network != 'nat')):
         raise ValueError('SSH exige início da VM e rede NAT.')
     if (plan.folders or plan.upgrade) and not plan.provision:

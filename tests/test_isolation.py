@@ -3,9 +3,23 @@ from pathlib import Path
 import tempfile
 import unittest
 from unittest.mock import patch
-from test_protection import fixture, DISK
-from vmforge.appliance import isolate_new_image, validate_appliance, PROTECTED_UUID
+from test_protection import fixture, DISK, PROTECTED_UUID, TEST_PROTECTION
+from vmforge.appliance import isolate_new_image, validate_appliance
 from vmforge.config import Settings, prepare_image
+
+
+
+def setUpModule():
+    global protection_patch
+    protection_patch = patch(
+        "vmforge.protection.load_protection",
+        return_value=TEST_PROTECTION,
+    )
+    protection_patch.start()
+
+
+def tearDownModule():
+    protection_patch.stop()
 
 
 class IsolationTests(unittest.TestCase):
