@@ -102,3 +102,31 @@ Licença: MIT.
 O assistente pergunta se deseja criar `~/pentest-lab/{scans,evidencias,notas}` dentro do Kali. A escolha padrao e **nao**. Recusar nao impede configurar a VM e o SSH. A pasta de destino da imagem da VM continua obrigatoria.
 
 No Windows, caso `vmforge` nao seja encontrado depois de `pip install --user -e .`, adicione a pasta `Scripts` indicada pelo pip ao `PATH`. No Git Bash com Python 3.14: `export PATH="$PATH:/c/Users/julia/AppData/Roaming/Python/Python314/Scripts"` (substitua o usuario e a versao conforme seu ambiente). Alternativamente use `python -m vmforge`.
+
+## Extração restrita de imagens 7z
+
+O manifesto é validado pelo 7-Zip antes de criar o destino. No Windows, o
+`tar.exe` nativo de System32 tem preferência para a leitura do conteúdo; o tar
+do Git Bash não é selecionado. O 7-Zip também pode fazer a extração.
+O 7-Zip continua obrigatório para validar metadados, mesmo usando tar.
+
+Somente diretórios, arquivos `.vbox` e `.vdi` são aceitos. O limite é 128 entradas
+e 128 GiB descompactados, com margem de 512 MiB de espaço livre. Caminhos
+absolutos, traversal, nomes reservados, colisões, links identificados no
+manifesto e entradas criptografadas são recusados. Cada arquivo é recebido por
+stdout e gravado pelo Python com criação exclusiva e limite de tamanho. O
+extrator não escolhe caminhos de saída. Uma falha de extração remove apenas o
+destino novo criado por essa chamada; a origem é aberta somente para leitura.
+
+WinRAR, Rar.exe e UnRAR.exe não são usados automaticamente: não há adaptador
+validado para manifesto e extração 7z neste projeto. Código de retorno de uma
+interface gráfica não serve como prova de sucesso. A importação direta de
+`.vbox` está temporariamente bloqueada enquanto suas referências externas não
+forem validadas; use o `.7z` original. Nomes de imagens não comprovam autenticidade.
+Valide a origem e os hashes publicados pelo fornecedor por um canal confiável.
+
+A extração não é uma sandbox para executáveis comprometidos, nem impede outro
+processo local de alterar simultaneamente o destino. Use ferramentas confiáveis
+e uma pasta privada. Os limites de tempo/tamanho não impõem uma cota de memória
+ao processo do extrator. Não extraia arquivos de origem desconhecida.
+
