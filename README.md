@@ -1,132 +1,122 @@
 # VMForge
 
-**VMForge — Virtual Machine Automation Toolkit**
+CLI em português para preparar uma **nova VM Kali Linux no Oracle VirtualBox**, com interface textual, menus numerados e operação pelo teclado.
 
-Ferramenta de linha de comando em Python que automatiza a criação de um laboratório Kali Linux a partir da **imagem oficial pré-configurada para Oracle VirtualBox**. A interface é textual, utilizável com teclado e foi pensada para funcionar com leitores de tela como o NVDA.
+**Estado: candidato 0.2.0rc1.** Testes automatizados, extração de arquivos pequenos e simulação foram validados. A criação real ponta a ponta e a avaliação manual com NVDA ainda estão pendentes. Não trate esta versão como certificada para produção.
 
-**Estado: v0.1.1 — protótipo funcional, ainda não validado em uma instalação ponta a ponta.** Os comandos de leitura e testes unitários foram verificados em ambiente de desenvolvimento. Teste a criação em uma imagem **nova**, isolada, antes de recomendar a outros usuários. Não é um instalador universal de qualquer VM.
+## Requisitos e instalação
 
-## Pré-requisitos
+- Windows 11 é o ambiente principal para criação; testes também rodam no Ubuntu.
+- Python 3.12 ou 3.14, Oracle VirtualBox 7.2 e 7-Zip com interface de linha de comando.
+- Imagem original `.7z` do Kali para VirtualBox, com Guest Additions e conta inicial `kali`.
+- Espaço para o conteúdo descompactado mais 512 MiB de margem. O assistente informa os valores antes de criar arquivos.
+- Internet dentro da VM apenas se o provisionamento SSH ou atualizações forem selecionados.
 
-- Windows 11 com Python 3.10+ (desenvolvido para VirtualBox 7.2; outras versões não verificadas).
-- Oracle VirtualBox com `VBoxManage`.
-- 7-Zip instalado para extrair `.7z` (não é necessário para `.vbox`).
-- Imagem oficial *Virtual Machines → VirtualBox* do Kali Linux: https://www.kali.org/get-kali/
-- A imagem deverá incluir as VirtualBox Guest Additions e usar credenciais **iniciais** `kali` / `kali`, padrão das imagens oficiais.
-- Capacidade de virtualização habilitada e recursos suficientes de RAM e disco.
-- Acesso à internet dentro da VM para instalar/ativar o OpenSSH.
+Verifique a procedência e o checksum da imagem pelo [site oficial do Kali](https://www.kali.org/get-kali/). A extensão e o nome do arquivo não provam autenticidade. O VMForge ainda não consulta checksums oficiais automaticamente.
 
-## Instalação
+Instale em ambiente virtual, dentro da pasta do projeto:
 
-No PowerShell ou Git Bash dentro da pasta do projeto:
+PowerShell:
 
-```shell
-python -m pip install --user -e .
+```powershell
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -e .
+.\.venv\Scripts\python.exe -B -m vmforge create --dry-run
 ```
 
-Depois:
+Git Bash no Windows:
 
-```shell
-vmforge --help
-vmforge check
-vmforge list
-vmforge create
+```bash
+python -m venv .venv
+./.venv/Scripts/python.exe -m pip install -e .
+./.venv/Scripts/python.exe -B -m vmforge create --dry-run
 ```
 
-Se o executável `vmforge` ainda não estiver no PATH, execute `python -m vmforge create` ou reinicie o terminal após configurar a pasta Scripts do Python no PATH.
+Não é necessário ativar o ambiente nem alterar a política do PowerShell. Use o mesmo Python do ambiente virtual nos comandos abaixo. Para Ubuntu, o executável correspondente é `.venv/bin/python`.
 
-No Windows, também existe `scripts/install-windows.ps1`, que utiliza `pip install --user -e .`.
+## Assistente e simulação
 
-## Assistente (`vmforge create`)
+```text
+python -B -m vmforge create --dry-run
+python -m vmforge create
+```
 
-1. Solicita o caminho de um `.7z` ou `.vbox` **de uma imagem nova do Kali**.
-2. Solicita uma **nova pasta de destino**, ainda inexistente, e RAM/CPUs/porta SSH.
-3. Copia ou extrai o conteúdo; procura um `.vbox` e registra a VM.
-4. Configura NAT e encaminhamento da porta SSH para `127.0.0.1` (somente acesso local).
-5. Inicia a VM em modo headless; usa Guest Additions para habilitar o SSH.
-6. Verifica a chave SSH do próprio convidado antes de conectar por SSH; pede uma nova senha sem eco de caracteres e muda a senha da conta `kali` pelo canal SSH.
-7. Cria as pastas `scans`, `evidencias` e `notas`; oferece atualização completa opcional.
-8. Desliga a VM pelo Linux, aguarda e cria o snapshot `VMForge-Lab-Preparado`; pergunta se deseja religá-la.
+O assistente solicita a imagem, um destino inexistente, o nome da VM e o modo básico ou avançado. O básico usa 4096 MB, 2 CPUs, NAT e uma porta local disponível a partir de 2223. O avançado permite escolher recursos, porta e NAT ou rede desconectada.
 
-Resultado: `ssh -p 2222 kali@127.0.0.1` (ou porta personalizada).
+Antes da confirmação são escolhidos: início da VM, configuração SSH, pastas de laboratório, atualização de pacotes, snapshot e estado final ligado/desligado. Pastas, atualização e snapshot são opcionais. O plano completo aparece antes da autorização. Uma resposta negativa cancela sem criar arquivos ou VMs. Senhas só são solicitadas na execução autorizada, antes da preparação da imagem.
 
-**Atenção:** a primeira versão **não verifica automaticamente** todas as ferramentas do professor ou instala componentes gráficos adicionais. Ela prepara a base e permite que o usuário complete a verificação do laboratório. É intencional para evitar instalar pacotes incompatíveis em qualquer imagem não testada.
+`--dry-run` verifica a assinatura e o manifesto, o espaço disponível, destino, nome e portas; consulta VMs registradas se o VirtualBox estiver disponível. Não extrai, registra, configura, inicia ou provisiona. Sem VirtualBox, avisa que os conflitos de registro não foram verificados. XML e VDI são validados após a extração autorizada. Use `-B` para impedir também arquivos de cache do próprio interpretador Python.
+
+Na execução, a cópia recebe UUIDs de máquina/disco e MACs independentes antes do registro. O fluxo usa o UUID validado, e não uma comparação de listas para escolher a máquina. Se solicitado, configura SSH, verifica a chave de host lida por Guest Additions e troca a senha. O snapshot `VMForge-Inicial` é criado somente depois de confirmar o desligamento. Não há desligamento forçado.
+
+Se SSH não for configurado, a senha original da imagem não será alterada. O resumo informa essa condição. Acesso após provisionamento, com a VM ligada:
+
+```text
+ssh -p 2223 kali@127.0.0.1
+```
 
 ## Comandos
 
-| Comando | Uso |
+| Comando após `python -m vmforge` | Função |
 |---|---|
-| `vmforge` | Menu textual |
-| `vmforge check` | Verifica Python e VirtualBox |
-| `vmforge list` | Lista VMs cadastradas |
-| `vmforge status NOME` | Consulta estado de uma VM |
-| `vmforge start NOME` | Inicia VM em modo headless |
-| `vmforge stop NOME` | Solicita desligamento ACPI (não força) |
-| `vmforge snapshot NOME TITULO` | Snapshot com VM desligada |
-| `vmforge create` | Assistente de criação Kali VirtualBox |
+| sem argumentos | Menu textual |
+| `check` | Consulta Python e VirtualBox |
+| `list` | Lista nome e UUID das VMs |
+| `status NOME_OU_UUID` | Consulta estado |
+| `create --dry-run` | Mostra o plano sem executar |
+| `create` | Assistente com confirmação explícita |
+| `start NOME_OU_UUID` | Inicia em modo headless |
+| `stop NOME_OU_UUID` | Solicita desligamento ACPI após confirmação |
+| `snapshot NOME_OU_UUID TITULO` | Cria snapshot com VM desligada, após confirmação |
 
-## Segurança
+## Extração e segurança
 
-- **Não rode `create` na VM existente do MBA.** A ferramenta exige pasta de destino nova, não remove VMs antigas, mas importar uma cópia de uma VM registrada pode gerar conflito de UUID no VirtualBox. Use um `.7z` oficial novo, ainda não importado, para testar.
-- A senha inicial `kali` é **pública e temporária** na imagem oficial. Ela é usada uma vez para habilitar o SSH. O texto `kali` aparece no comando de bootstrap dentro do convidado. **Senhas novas nunca são colocadas em argumentos de processos**: são transferidas através de SSH criptografado, e `getpass` oculta a digitação.
-- O `guestcontrol` usa um arquivo temporário local para a credencial de login inicial. Esse arquivo é removido ao final. Em máquinas compartilhadas, arquivos temporários podem ter riscos residuais; recomenda-se testar em máquina confiável.
-- SSH fica ligado apenas a `127.0.0.1`, e o cliente verifica se a chave SSH apresentada corresponde à chave pública lida na VM via Guest Additions.
-- Não usa `shell=True` no host para chamar o `VBoxManage`.
-- Não implementa remoção forçada, restauração destrutiva nem testes de intrusão em alvos externos.
-- Caso falhe após a importação, o VMForge **mantém os arquivos e a VM** para diagnóstico. Não tente rodar `create` novamente com a mesma pasta; avalie o estado antes.
-- Não compartilhe arquivos de configuração da VM contendo credenciais, chaves, notas pessoais ou capturas de exercícios ao publicar no GitHub.
+O **7-Zip é obrigatório para validar o manifesto**, mesmo quando o tar faz a extração. No Windows, o `tar.exe` nativo de `System32` tem preferência para ler o conteúdo. O tar do Git Bash não é selecionado. O 7-Zip instalado em Program Files é preferido ao PATH e sua interface é verificada.
 
-## Limitações conhecidas
+O manifesto deve conter somente diretórios, `.vbox` e `.vdi`: até 128 entradas e 128 GiB descompactados. A preparação exige exatamente um `.vbox` e um VDI independente. Caminhos absolutos, traversal, UNC, unidades Windows, nomes reservados, colisões e links identificados no manifesto são recusados antes da extração. Entradas criptografadas não são aceitas.
 
-- Compatibilidade **inicialmente prevista para Windows com VirtualBox e imagens pré-construídas do Kali**. Não há suporte testado para VMware, ISO de instalação, distribuições diferentes, imagens já modificadas ou importação clonada de uma VM registrada.
-- A instalação completa *end-to-end* ainda precisa ser executada num computador Windows com VirtualBox; os testes unitários não substituem esse teste.
-- `getpass` depende de terminal compatível. Testar com NVDA no PowerShell e Git Bash.
-- A atualização de pacotes pode demandar muito tempo/espaço e reinicialização. O snapshot é feito após solicitar o desligamento, mas a atualização do kernel só será ativada no próximo boot.
-- Burp Suite/Wireshark são gráficos e exigem planejamento de acessibilidade separadamente.
-- Este protótipo não é tolerante a todos os erros de rede nem garante recuperação automática de interrupções.
+Cada arquivo é recebido por stdout, com limite de tamanho e tempo, e gravado pelo Python com criação exclusiva. O extrator não escolhe os caminhos de saída. A origem é aberta somente para leitura; um destino existente nunca é reutilizado. Falhas durante a extração removem somente o destino novo criado pela chamada. Falhas posteriores preservam os arquivos para diagnóstico e não são anunciadas como conclusão.
 
-## Executar testes
+O XML não aceita entidades/DTD, referências externas, snapshots existentes, discos diferenciais, pastas compartilhadas ou mídias externas. O cabeçalho VDI e sua identidade são verificados; isso não verifica o sistema de arquivos do convidado. A geração de nova identidade altera apenas a cópia recém-extraída. O layout VDI 1.1 foi conferido no [código oficial do VirtualBox](https://github.com/VirtualBox/virtualbox/blob/main/src/VBox/Storage/VDICore.h).
 
-```shell
-python -m unittest discover -s tests -v
+**WinRAR não tem adaptador validado neste projeto.** WinRAR, Rar.exe e UnRAR.exe não são utilizados automaticamente para `.7z`; código de retorno de uma interface gráfica não comprova extração. Importação direta de `.vbox` permanece bloqueada. Use o arquivo `.7z` original.
+
+A pasta de destino deve ser privada, sem outros processos alterando-a durante a execução. O programa não é uma sandbox para executáveis comprometidos e não impõe cotas de memória ao extrator. Os limites de tamanho não substituem a confiança na ferramenta e na origem.
+
+## Preservação de máquinas existentes
+
+A VM de uso real `kali-linux-2026.3-virtualbox-amd64`, UUID `2d792251-94c7-41f0-95e5-5ebf008983b2`, está explicitamente protegida. Operações mutáveis consultam o UUID, inclusive se a VM foi renomeada. A porta 2222 é reservada e não é usada pelo assistente. Nunca selecione os arquivos ou diretórios dessa VM como destino.
+
+Conflitos de nome, UUID de máquina, UUID de disco e regras NAT são recusados. Portas de VMs desligadas também são consideradas. Não há exclusão automática de VMs nem rollback destrutivo. Se uma etapa falhar depois do registro, consulte `list` e `status`, preserve o diagnóstico e não repita a criação no mesmo destino.
+
+Senhas novas não são argumentos de processos. O bootstrap usa a senha pública inicial da imagem apenas no convidado. A autenticação por Guest Additions usa arquivo temporário de credencial, removido ao terminar. O SSH é vinculado a `127.0.0.1` e verifica a chave do convidado. Não publique imagens, chaves, senhas ou arquivos pessoais no repositório.
+
+## Testes e empacotamento
+
+```text
+python -B -m unittest discover -s tests -v
+python -m compileall -q vmforge
+python -m pip wheel --no-deps --wheel-dir dist .
 ```
 
-## Créditos
+Os testes de integração criam arquivos 7z pequenos em pastas temporárias. Não criam nem usam VMs. Testes específicos do tar são executados no Windows; integração com 7-Zip é sinalizada como pulada se a ferramenta não existir. A CI exige que o 7-Zip esteja disponível e executa a matriz Windows/Ubuntu com Python 3.12/3.14, empacotamento e instalação do wheel em ambiente isolado.
 
-Projeto criado para experimentar automação de laboratórios virtuais e acessibilidade por linha de comando. Não possui afiliação com Oracle ou Kali Linux.
+Para testar o pacote instalado fora do checkout:
 
-Licença: MIT.
+```text
+python -m venv work/test-package
+```
 
-## Pastas de laboratorio opcionais
+Instale o wheel nesse ambiente e execute `python -I -m vmforge --version`, usando o Python do ambiente. A CI faz essa verificação automaticamente.
 
-O assistente pergunta se deseja criar `~/pentest-lab/{scans,evidencias,notas}` dentro do Kali. A escolha padrao e **nao**. Recusar nao impede configurar a VM e o SSH. A pasta de destino da imagem da VM continua obrigatoria.
+## Acessibilidade e solução de problemas
 
-No Windows, caso `vmforge` nao seja encontrado depois de `pip install --user -e .`, adicione a pasta `Scripts` indicada pelo pip ao `PATH`. No Git Bash com Python 3.14: `export PATH="$PATH:/c/Users/julia/AppData/Roaming/Python/Python314/Scripts"` (substitua o usuario e a versao conforme seu ambiente). Alternativamente use `python -m vmforge`.
+- Interface textual, sem animações, cores obrigatórias ou dependência gráfica. Menus e confirmações funcionam pelo teclado. A avaliação prática com NVDA ainda precisa ser feita pelo usuário.
+- Se `vmforge` não estiver no PATH, use `python -m vmforge` com o Python correto.
+- Se acentos saírem incorretos em redirecionamentos, use `$env:PYTHONIOENCODING='utf-8'` no PowerShell ou `export PYTHONIOENCODING=utf-8` no Git Bash. `getpass` precisa de terminal interativo para ocultar a senha.
+- Se aparecer “7-Zip compatível não encontrado”, instale o 7-Zip oficial e confirme `7z i`; WinRAR sozinho não satisfaz o requisito.
+- Se uma imagem for recusada por referência externa ou formato, não contorne a validação editando a VM existente. Use uma imagem original compatível.
+- Se houver timeout de Guest Additions/SSH, a VM fica preservada para diagnóstico. Não há garantia de retomada automática.
+- Atualizações podem demorar e exigir um boot posterior para ativar um novo kernel. Aplicativos gráficos do Kali precisam de avaliação de acessibilidade separada.
 
-## Extração restrita de imagens 7z
-
-O manifesto é validado pelo 7-Zip antes de criar o destino. No Windows, o
-`tar.exe` nativo de System32 tem preferência para a leitura do conteúdo; o tar
-do Git Bash não é selecionado. O 7-Zip também pode fazer a extração.
-O 7-Zip continua obrigatório para validar metadados, mesmo usando tar.
-
-Somente diretórios, arquivos `.vbox` e `.vdi` são aceitos. O limite é 128 entradas
-e 128 GiB descompactados, com margem de 512 MiB de espaço livre. Caminhos
-absolutos, traversal, nomes reservados, colisões, links identificados no
-manifesto e entradas criptografadas são recusados. Cada arquivo é recebido por
-stdout e gravado pelo Python com criação exclusiva e limite de tamanho. O
-extrator não escolhe caminhos de saída. Uma falha de extração remove apenas o
-destino novo criado por essa chamada; a origem é aberta somente para leitura.
-
-WinRAR, Rar.exe e UnRAR.exe não são usados automaticamente: não há adaptador
-validado para manifesto e extração 7z neste projeto. Código de retorno de uma
-interface gráfica não serve como prova de sucesso. A importação direta de
-`.vbox` está temporariamente bloqueada enquanto suas referências externas não
-forem validadas; use o `.7z` original. Nomes de imagens não comprovam autenticidade.
-Valide a origem e os hashes publicados pelo fornecedor por um canal confiável.
-
-A extração não é uma sandbox para executáveis comprometidos, nem impede outro
-processo local de alterar simultaneamente o destino. Use ferramentas confiáveis
-e uma pasta privada. Os limites de tempo/tamanho não impõem uma cota de memória
-ao processo do extrator. Não extraia arquivos de origem desconhecida.
-
+Consulte [o roadmap](docs/ROADMAP.md) e [o registro de entregas](docs/ENTREGAS.md). Não há afiliação com Oracle ou Kali Linux. Licença MIT.
