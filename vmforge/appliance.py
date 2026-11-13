@@ -91,6 +91,11 @@ def isolate_new_image(path, destination):
         raise ValueError('A cópia precisa conter arquivos independentes, sem hard links.')
     tree = ET.parse(path)
     machine_id, disk_id = uuid.uuid4(), uuid.uuid4()
+    # The original template may have a protected name. Rename only the
+    # independent extracted copy before validating it or registering it.
+    for element in tree.getroot().iter():
+        if element.tag.rsplit('}', 1)[-1] == 'Machine':
+            element.set('name', f'VMForge-Import-{machine_id.hex}')
     replacements = {appliance['uuid']: str(machine_id), appliance['disk_uuid']: str(disk_id)}
     for element in tree.getroot().iter():
         for key, value in list(element.attrib.items()):
