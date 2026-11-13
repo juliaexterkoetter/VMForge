@@ -89,7 +89,7 @@ def recover_main(argv=None):
 
 
 def _norm_cfg_path(raw):
-    return str(Path(raw).resolve()).casefold()
+    return str(Path(raw.replace(chr(92) * 2, chr(92))).resolve()).casefold()
 
 
 def purge_main(argv=None):

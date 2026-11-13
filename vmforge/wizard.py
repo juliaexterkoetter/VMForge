@@ -271,7 +271,7 @@ def execute_plan(plan, vbox, prepared_path=None):
             print('SSH não configurado. A senha original da imagem não foi alterada.')
         return 0
     except Exception as exc:
-        raise RuntimeError(f'Criação não concluída na etapa {phase}: {exc}. Verifique o destino e o registro antes de tentar novamente; nenhuma VM será excluída automaticamente.') from exc
+        raise RuntimeError(f'Criação não concluída na etapa {phase}: {str(exc) or type(exc).__name__}. Verifique o destino e o registro antes de tentar novamente; nenhuma VM será excluída automaticamente.') from exc
 
 
 def create_wizard(dry_run=False):

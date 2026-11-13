@@ -36,14 +36,18 @@ def main(argv=None):
     create.add_argument('--dry-run', action='store_true', help='Mostrar plano sem modificar arquivos ou VMs')
     subs.add_parser('recover', help='Recuperar VM extraida com UUIDs validados')
     subs.add_parser('purge-test', help='Excluir VM de teste registrada com confirmacao forte')
+    subs.add_parser('resume-provision', help='Retomar SSH de VM de teste ja registrada')
     # Forward recovery-specific options without argparse consuming them.
     argv = sys.argv[1:] if argv is None else argv
-    if argv and argv[0] in ('recover', 'purge-test'):
+    if argv and argv[0] in ('recover', 'purge-test', 'resume-provision'):
         from .recovery import recover_main, purge_main
         try:
+            if argv[0] == 'resume-provision':
+                from .resume import resume_main
+                return resume_main(argv[1:])
             return (recover_main if argv[0] == 'recover' else purge_main)(argv[1:])
         except (ValueError, VMError, RuntimeError, OSError, EOFError, KeyboardInterrupt) as exc:
-            print(f'Erro: {exc}', file=sys.stderr)
+            print(f'Erro ({type(exc).__name__}): {str(exc) or chr(91) + 'sem detalhes; consulte a etapa registrada' + chr(93)}', file=sys.stderr)
             return 1
     args = parser.parse_args(argv)
     try:
@@ -81,7 +85,7 @@ def main(argv=None):
             print(vb.snapshot(identity, args.title))
         return 0
     except (ValueError, VMError, RuntimeError, OSError, EOFError, KeyboardInterrupt) as exc:
-        print(f'Erro: {exc}', file=sys.stderr)
+        print(f'Erro ({type(exc).__name__}): {str(exc) or chr(91) + 'sem detalhes; consulte a etapa registrada' + chr(93)}', file=sys.stderr)
         return 1
 
 
