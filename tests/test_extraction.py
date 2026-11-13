@@ -71,7 +71,7 @@ class DetectionTests(unittest.TestCase):
                 sevenzip_path()
 
     def test_sevenzip_verified(self):
-        with patch('pathlib.Path.is_file', return_value=True), patch('vmforge.extraction.subprocess.run', return_value=Mock(returncode=0, stdout='7z')):
+        with patch('vmforge.extraction.shutil.which', return_value='/fake/7z'), patch('pathlib.Path.is_file', return_value=True), patch('vmforge.extraction.subprocess.run', return_value=Mock(returncode=0, stdout='7z')):
             self.assertTrue(sevenzip_path())
 
     @unittest.skipUnless(os.name == 'nt', 'Windows')

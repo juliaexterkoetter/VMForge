@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from .config import Settings, prepare_image, validate
 from .extraction import inspect_archive
-from .appliance import PROTECTED_NAME, validate_appliance
+from .appliance import PROTECTED_NAME, validate_appliance, write_appliance
 from .providers.virtualbox import VirtualBox, VMError
 from .provisioners.kali import bootstrap_ssh, change_password, connect_ssh, setup_lab, shutdown_guest, wait_guest
 
@@ -89,7 +89,8 @@ class CreationPlan:
             f'RAM: {s.ram} MB; CPUs: {s.cpus}; rede: {self.network}',
             f'Porta SSH local: {s.port}' if self.network == 'nat' else 'Rede desconectada; SSH indisponível.',
             'Validar manifesto, espaço livre, XML, VDI e conflitos de UUID.',
-            'Extrair somente para pasta nova; registrar e configurar a nova VM.',
+            'Extrair somente para pasta nova; gerar UUIDs e MACs independentes na cópia.',
+            'Registrar e configurar somente a nova VM com esses identificadores.',
             f'Iniciar: {label(self.start)}; configurar SSH e trocar senha: {label(self.provision)}',
             f'Pastas de laboratório: {label(self.folders)}; atualizar pacotes: {label(self.upgrade)}',
             f'Snapshot: {label(self.snapshot)}; manter ligada: {label(self.keep_running)}',
@@ -179,7 +180,7 @@ def execute_plan(plan, vbox):
         tree = ET.parse(path)
         machine = next(e for e in tree.getroot().iter() if e.tag.rsplit('}', 1)[-1] == 'Machine')
         machine.set('name', plan.name)
-        tree.write(path, encoding='utf-8', xml_declaration=True)
+        write_appliance(tree, path)
         phase = 'registro'
         vbox.register(path)
         # Use the exact validated UUID; never infer identity by a list difference.

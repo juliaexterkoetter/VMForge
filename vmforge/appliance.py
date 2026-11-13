@@ -16,7 +16,7 @@ def canonical_uuid(value):
         raise ValueError('UUID ausente ou inválido; operação bloqueada.') from exc
 
 
-def validate_appliance(path):
+def validate_appliance(path, *, template=False):
     path = Path(path)
     if path.is_symlink() or path.stat().st_size > 4 * 1024**2:
         raise ValueError('Arquivo .vbox inválido ou grande demais.')
@@ -33,7 +33,7 @@ def validate_appliance(path):
         raise ValueError('Esperada uma única máquina no .vbox.')
     machine = machines[0]
     machine_uuid = canonical_uuid(machine.get('uuid'))
-    if machine_uuid == PROTECTED_UUID:
+    if machine_uuid == PROTECTED_UUID and not template:
         raise ValueError('UUID protegido: a VM existente não pode ser importada ou alterada.')
     disks = [e for e in root.iter() if local(e) == 'HardDisk']
     if len(disks) != 1 or disks[0].get('format', '').upper() != 'VDI':
@@ -45,7 +45,7 @@ def validate_appliance(path):
         for key, value in element.attrib.items():
             if key.lower() in ('location', 'src', 'path', 'hostpath', 'statefile', 'snapshotfolder', 'logfolder', 'nvram') and value:
                 safe_path(value)
-                if key.lower() != 'location':
+                if key.lower() not in ('location', 'snapshotfolder', 'logfolder'):
                     raise ValueError(f'Referência de arquivo não suportada: {key}.')
     disk = disks[0]
     relative = safe_path(disk.get('location', ''))
@@ -57,7 +57,7 @@ def validate_appliance(path):
         raise ValueError('Disco VDI ausente.')
     with disk_path.open('rb') as stream:
         header = stream.read(512)
-    if len(header) < 400 or struct.unpack_from('<I', header, 64)[0] != 0xbeda107f:
+    if len(header) < 456 or struct.unpack_from('<I', header, 64)[0] != 0xbeda107f:
         raise ValueError('Assinatura VDI inválida.')
     if struct.unpack_from('<I', header, 68)[0] != 0x00010001:
         raise ValueError('Versão VDI não suportada.')
@@ -73,3 +73,49 @@ def validate_appliance(path):
             raise ValueError('Referência a mídia externa não permitida.')
     return {'uuid': machine_uuid, 'name': machine.get('name', ''),
             'disk_uuid': disk_uuid, 'disk_path': disk_path}
+
+
+def isolate_new_image(path, destination):
+    """Called only after exclusive extraction into a newly created directory.
+
+    Rewrites identity bytes in that private copy, never through VBoxManage.
+    VDI 1.1 uuidCreate is at byte 392 (VirtualBox VDICore.h).
+    """
+    import os
+    import secrets
+    path, destination = Path(path), Path(destination)
+    if not path.resolve().is_relative_to(destination.resolve()) or path.is_symlink():
+        raise ValueError('A configuração precisa estar dentro do novo destino.')
+    appliance = validate_appliance(path, template=True)
+    disk = appliance['disk_path']
+    if not disk.resolve().is_relative_to(destination.resolve()) or disk.stat().st_nlink != 1 or path.stat().st_nlink != 1:
+        raise ValueError('A cópia precisa conter arquivos independentes, sem hard links.')
+    tree = ET.parse(path)
+    machine_id, disk_id = uuid.uuid4(), uuid.uuid4()
+    replacements = {appliance['uuid']: str(machine_id), appliance['disk_uuid']: str(disk_id)}
+    for element in tree.getroot().iter():
+        for key, value in list(element.attrib.items()):
+            if key.lower() in ('uuid', 'hardwareuuid'):
+                normalized = canonical_uuid(value)
+                if normalized in replacements:
+                    element.set(key, '{' + replacements[normalized] + '}')
+            if key.lower() == 'macaddress':
+                element.set(key, '080027' + secrets.token_hex(3).upper())
+    with disk.open('r+b') as stream:
+        stream.seek(392)
+        if stream.read(16) != uuid.UUID(appliance['disk_uuid']).bytes_le:
+            raise ValueError('A identidade do disco mudou durante a preparação.')
+        stream.seek(392)
+        stream.write(disk_id.bytes_le)
+        stream.flush()
+        os.fsync(stream.fileno())
+    # Any failure leaves an unregistered, visibly incomplete destination.
+    write_appliance(tree, path)
+    return validate_appliance(path)
+
+
+def write_appliance(tree, path):
+    root = tree.getroot()
+    if root.tag.startswith('{'):
+        ET.register_namespace('', root.tag[1:].split('}', 1)[0])
+    tree.write(path, encoding='utf-8', xml_declaration=True)

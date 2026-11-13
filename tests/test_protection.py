@@ -13,7 +13,7 @@ DISK = '20000000-0000-4000-8000-000000000001'
 
 def fixture(root, identity=MACHINE, location='disk.vdi', extra=''):
     path = root/'kali.vbox'
-    path.write_text(f'<VirtualBox><Machine uuid="{{{identity}}}" name="Teste"><MediaRegistry><HardDisks><HardDisk uuid="{{{DISK}}}" location="{location}" format="VDI"/></HardDisks></MediaRegistry><Hardware><StorageControllers><Image uuid="{{{DISK}}}"/></StorageControllers>{extra}</Hardware></Machine></VirtualBox>', encoding='utf-8')
+    path.write_text(f'<VirtualBox xmlns="http://www.virtualbox.org/"><Machine uuid="{{{identity}}}" name="Teste"><MediaRegistry><HardDisks><HardDisk uuid="{{{DISK}}}" location="{location}" format="VDI"/></HardDisks></MediaRegistry><Hardware><StorageControllers><Image uuid="{{{DISK}}}"/></StorageControllers>{extra}</Hardware></Machine></VirtualBox>', encoding='utf-8')
     header = bytearray(512)
     struct.pack_into('<III', header, 64, 0xbeda107f, 0x00010001, 400)
     struct.pack_into('<I', header, 76, 1)
