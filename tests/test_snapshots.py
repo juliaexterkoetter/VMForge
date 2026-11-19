@@ -16,6 +16,17 @@ OTHER = '30000000-0000-4000-8000-000000000001'
 
 
 class LabTests(unittest.TestCase):
+    def test_restore_dry_run_does_not_confirm_or_mutate(self):
+        with patch('builtins.input', side_effect=AssertionError('prompt forbidden')), redirect_stdout(io.StringIO()):
+            self.assertEqual(main(['restore', 'renamed', SNAP, '--dry-run']), 0)
+        self.assertEqual(self.mutations, [])
+
+    def test_snapshot_list_is_read_only(self):
+        with redirect_stdout(io.StringIO()) as out:
+            self.assertEqual(main(['snapshots', 'renamed']), 0)
+        self.assertEqual(json.loads(out.getvalue())['snapshots'], [SNAP])
+        self.assertEqual(self.mutations, [])
+
     def setUp(self):
         self.state = 'poweroff'
         self.snapshots = f'SnapshotName="initial"\nSnapshotUUID="{SNAP}"'

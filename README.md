@@ -1,5 +1,10 @@
 # VMForge
 
+Esta branch consolida auditorias e acrescenta laboratórios, templates e inventário.
+Consulte [comandos novos](docs/COMANDOS_EVOLUCAO.md) e
+[evidências, limitações e pendências](docs/EVOLUCAO_E_AUDITORIA.md).
+Não representa conclusão de todas as modalidades planejadas nem validação real.
+
 CLI em português para preparar uma **nova VM Kali Linux no Oracle VirtualBox**, com interface textual, menus numerados e operação pelo teclado.
 
 **Estado: candidato 0.2.0rc1.** Testes automatizados, extração de arquivos pequenos e simulação foram validados. A criação real ponta a ponta e a avaliação manual com NVDA ainda estão pendentes. Não trate esta versão como certificada para produção.
