@@ -141,3 +141,7 @@ Para relatar vulnerabilidades, consulte [SECURITY.md](SECURITY.md).
 ## Licença
 
 Copyright © 2026 Júlia Schaden Exterkoetter. Licenciado sob Apache License, Version 2.0. Consulte [LICENSE](LICENSE), [NOTICE](NOTICE) e [COPYRIGHT.md](COPYRIGHT.md).
+
+## Laboratorios multi-VM
+
+Os comandos `vmforge lab plan/create/start/status/stop` usam manifesto JSON versionado, UUIDs persistidos e rede interna exclusiva. Veja [manifesto, comandos e tratamento de falhas](docs/labs.md).

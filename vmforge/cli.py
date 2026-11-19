@@ -27,6 +27,7 @@ def main(argv=None):
     subs = parser.add_subparsers(dest='action')
     subs.add_parser('check', help='Verificar Python e VirtualBox')
     subs.add_parser('import-disk', help='Importar disco VMDK para uma VM nova')
+    subs.add_parser('lab', help='Planejar e gerenciar laboratorios multi-VM')
     subs.add_parser('list', help='Listar máquinas virtuais')
     for action, description in [('status', 'Consultar status da VM'), ('start', 'Iniciar VM em segundo plano'), ('stop', 'Solicitar desligamento ACPI'), ('snapshot', 'Criar snapshot com VM desligada')]:
         sub = subs.add_parser(action, help=description)
@@ -40,6 +41,9 @@ def main(argv=None):
     subs.add_parser('resume-provision', help='Retomar SSH de VM de teste ja registrada')
     # Forward recovery-specific options without argparse consuming them.
     argv = sys.argv[1:] if argv is None else argv
+    if argv and argv[0] == 'lab':
+        from .lab import main as lab_main
+        return lab_main(argv[1:])
     if argv and argv[0] in ('recover', 'purge-test', 'resume-provision'):
         from .recovery import recover_main, purge_main
         try:

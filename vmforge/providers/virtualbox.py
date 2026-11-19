@@ -153,6 +153,23 @@ class VirtualBox:
             options.extend(['--nat-pf1', f'vmforge-ssh,tcp,127.0.0.1,{port},,22'])
         self.run('modifyvm', name, *options)
 
+    def configure_lab(self, identity, ram, cpus, network):
+        """Configure an imported lab VM with only a private internal NIC."""
+        identity = canonical_uuid(identity)
+        if (type(ram) is not int or not 1024 <= ram <= 131072 or
+                type(cpus) is not int or not 1 <= cpus <= 64 or
+                not isinstance(network, str) or
+                not re.fullmatch(r'vmforge-[0-9a-f-]{36}', network)):
+            raise VMError('Recursos ou rede de laboratorio invalidos.')
+        if self.status(identity) != 'poweroff':
+            raise VMError('A VM precisa estar desligada para configurar o laboratorio.')
+        options = ['--memory', ram, '--cpus', cpus, '--nic1', 'intnet',
+                   '--intnet1', network, '--cable-connected1', 'on',
+                   '--nicpromisc1', 'deny']
+        for index in range(2, 9):
+            options.extend([f'--nic{index}', 'none'])
+        self.run('modifyvm', identity, *options)
+
     def start(self, name):
         state = self.status(name)
         if state == 'running':
