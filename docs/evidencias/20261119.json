@@ -1,0 +1,49 @@
+{
+  "command": [
+    "python",
+    "-B",
+    "scripts/test_mocked.py"
+  ],
+  "exit_code": 0,
+  "tests": 212,
+  "failures": 0,
+  "errors": 0,
+  "skipped": 6,
+  "skipped_tests": [
+    "Um teste de symlink: privilegio Windows indisponivel",
+    "Cinco testes com processos reais excluidos do runner de mocks"
+  ],
+  "python": "3.14.7 (tags/v3.14.7:823f032, Aug  5 2026, 10:51:32) [MSC v.1944 64 bit (AMD64)]",
+  "environment": "Windows-11-10.0.26200-SP0",
+  "commit": "3cbd2362a0f3efd1e5d86d1475af0c1c8f31cdcf",
+  "dirty": false,
+  "date": "2026-11-19T23:12:56.779000+00:00",
+  "syntax_errors": [],
+  "real_virtualbox": "not run",
+  "nvda": "not run",
+  "package": {
+    "build_exit_code": 0,
+    "clean_venv_install_exit_code": 0,
+    "smoke_checks": 14,
+    "smoke_failures": 0
+  },
+  "evidence_files": [
+    "work/test-results.log",
+    "work/package-build.log",
+    "work/package-install.log",
+    "work/package-smoke.json"
+  ],
+  "pull_request": "https://github.com/juliaexterkoetter/VMForge/pull/26",
+  "ci": {
+    "tested_commit": "3cbd2362a0f3efd1e5d86d1475af0c1c8f31cdcf",
+    "test_run": 44635931871,
+    "codeql_run": 44635932111,
+    "conclusion": "success",
+    "matrix": [
+      "windows/3.12",
+      "windows/3.14",
+      "ubuntu/3.12",
+      "ubuntu/3.14"
+    ]
+  }
+}

@@ -56,6 +56,17 @@ Implementações disponíveis nesta branch:
 
 ## Validação e evidências
 
+Resultado final de código: commit `3cbd236`, árvore limpa. **212 testes,
+zero falhas/erros e 6 exclusões**: cinco testes de processos reais excluídos
+pelo runner e um teste de symlink sem privilégio no Windows. Wheel construído
+e instalado em venv novo; 14 checks de CLI/instalação aprovados.
+[Evidência estruturada](evidencias/20261119.json).
+
+Commits adicionais: `6d653c0` (segurança e consultas locais de labs), `44d5efb`
+(templates/inventário/restauração/documentação), `3cbd236` (CI e evidências).
+Branch publicada; [PR #26 em rascunho](https://github.com/juliaexterkoetter/VMForge/pull/26),
+baseado no PR #25. Nenhum PR marcado pronto ou mesclado.
+
 Executar na raiz desta branch:
 
 ```text
@@ -84,11 +95,17 @@ Esses resultados são da cadeia original, **não certificam as alterações nova
 Os workflows recuperados removem o filtro de base main para testar PRs encadeados.
 Matriz Windows/Ubuntu, Python 3.12/3.14, wheel, instalação e smoke tests da CLI.
 
+Para o código consolidado `3cbd236`, ambos os workflows concluíram com sucesso:
+[testes e empacotamento, run 44635931871](https://github.com/juliaexterkoetter/VMForge/actions/runs/44635931871)
+e [CodeQL, run 44635932111](https://github.com/juliaexterkoetter/VMForge/actions/runs/44635932111).
+A matriz validou Windows/Ubuntu com Python 3.12/3.14; isso não é validação com VMs reais.
+Este registro de evidências é posterior ao commit de código validado.
+
 ## Pendências e riscos conhecidos
 
 - VirtualBox real, boot, preservação de discos reais, Windows/Git Bash e NVDA
   precisam de validação humana em VMs descartáveis após autorização explícita.
-- Python 3.12 e Linux ainda dependem da nova CI ou ambiente apropriado.
+- Python 3.12 e Linux passaram na CI simulada; operação real nesses ambientes não validada.
 - Não há cobertura percentual medida nem auditoria de dependências conclusiva.
 - Não há parser integral das tabelas internas de grains VMDK; a clonagem pode
   recusar imagens estruturalmente inválidas. Hash local não autentica fornecedor.
