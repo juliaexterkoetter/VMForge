@@ -37,7 +37,9 @@ class VirtualBox:
             raise VMError('Comando vazio.')
         args = list(args)
         action = args[0]
-        if action in ('modifyvm', 'startvm', 'controlvm', 'snapshot'):
+        if action == 'snapshot' and len(args) == 4 and args[2:] == ['list', '--machinereadable']:
+            pass  # Read-only inventory, also available for protected VMs.
+        elif action in ('modifyvm', 'startvm', 'controlvm', 'snapshot'):
             args[1] = self.require_writable(args[1])
         elif action == 'guestcontrol':
             # Only the minimal commands required for Kali bootstrap.
@@ -185,6 +187,45 @@ class VirtualBox:
         return 'Desligamento solicitado ao sistema convidado.'
 
     def snapshot(self, name, title):
-        if self.status(name) != 'poweroff':
+        identity = self.require_writable(name)
+        if not title.strip() or title.startswith('-'):
+            raise VMError('Nome de snapshot invalido.')
+        if self.status(identity) != 'poweroff':
             raise VMError('Desligue a VM antes de criar este snapshot.')
-        return self.run('snapshot', name, 'take', title, '--description', 'Preparada pelo VMForge', timeout=300)
+        return self.run('snapshot', identity, 'take', title, '--description', 'Preparada pelo VMForge', timeout=300)
+
+    def list_snapshots(self, identity):
+        output = self.run('snapshot', identity, 'list', '--machinereadable')
+        snapshots = []
+        for line in output.splitlines():
+            match = re.fullmatch(r'SnapshotUUID(?:-\d+)*="([^"]+)"', line.strip())
+            if match:
+                snapshots.append(canonical_uuid(match.group(1)))
+        return snapshots
+
+    def restore(self, name, snapshot_uuid):
+        """Restore only an explicit snapshot UUID on an unprotected, powered-off VM."""
+        identity = self.require_writable(name)
+        snapshot_uuid = canonical_uuid(snapshot_uuid)
+        if snapshot_uuid not in self.list_snapshots(identity):
+            raise VMError('Snapshot UUID nao encontrado nesta VM.')
+        if self.status(identity) != 'poweroff':
+            raise VMError('Desligue a VM antes de restaurar o snapshot; nenhum poweroff sera forcado.')
+        return self.run('snapshot', identity, 'restore', snapshot_uuid, timeout=300)
+
+    def diagnose(self, name):
+        """Read-only report with an allowlist to avoid exposing guest credentials."""
+        info = self.info(name)
+        identity = canonical_uuid(info.get('UUID'))
+        report = {key: info[key] for key in (
+            'name', 'VMState', 'memory', 'cpus', 'CurrentSnapshotUUID',
+        ) if key in info}
+        report['UUID'] = identity
+        report['snapshots'] = self.list_snapshots(identity)
+        try:
+            protection = load_protection()
+            report['protection'] = ('protected' if protection.protects_vm(
+                uuid_value=identity, name=info.get('name')) else 'unprotected')
+        except ValueError:
+            report['protection'] = 'unavailable; mutations blocked'
+        return report
