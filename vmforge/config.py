@@ -49,7 +49,8 @@ def prepare_image(settings):
             extract_archive(settings.image, settings.destination)
         else:
             raise ValueError('Importação direta de .vbox bloqueada até validar referências externas; utilize o .7z original.')
-        matches = list(settings.destination.rglob('*.vbox'))
+        matches = [path for path in settings.destination.rglob('*')
+                   if path.suffix.lower() == '.vbox' and path.is_file()]
         if len(matches) != 1:
             raise RuntimeError(f'Esperado exatamente um arquivo .vbox; encontrados: {len(matches)}.')
         from .appliance import isolate_new_image

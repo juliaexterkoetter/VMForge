@@ -23,6 +23,42 @@ def tearDownModule():
 
 
 class IsolationTests(unittest.TestCase):
+    def test_prepare_discovers_configurations_case_insensitively(self):
+        for extension in ('.vbox', '.VBOX', '.VBox'):
+            with self.subTest(extension=extension), tempfile.TemporaryDirectory() as td:
+                root = Path(td)
+                archive = root / 'original.7z'
+                archive.touch()
+                dest = root / 'new'
+
+                def extract(image, destination):
+                    folder = destination / 'template.vbox'
+                    folder.mkdir(parents=True)
+                    fixture(folder).rename(folder / ('machine' + extension))
+
+                with patch('vmforge.config.extract_archive', side_effect=extract):
+                    path = prepare_image(Settings(archive, dest))
+                self.assertEqual(path, dest / 'template.vbox' / ('machine' + extension))
+                self.assertNotEqual(validate_appliance(path)['disk_uuid'], DISK)
+
+    def test_prepare_rejects_multiple_configurations_before_isolation(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            archive = root / 'original.7z'
+            archive.touch()
+            dest = root / 'new'
+
+            def extract(image, destination):
+                destination.mkdir()
+                path = fixture(destination)
+                (destination / 'second.VBOX').write_bytes(path.read_bytes())
+
+            with patch('vmforge.config.extract_archive', side_effect=extract), \
+                    patch('vmforge.appliance.isolate_new_image') as isolate:
+                with self.assertRaisesRegex(RuntimeError, 'encontrados: 2'):
+                    prepare_image(Settings(archive, dest))
+                isolate.assert_not_called()
+
     def test_protected_template_name_is_renamed_in_copy(self):
         with tempfile.TemporaryDirectory() as td:
             root = Path(td)
