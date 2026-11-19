@@ -26,6 +26,7 @@ def main(argv=None):
     parser.add_argument('--version', action='version', version='VMForge ' + VERSION)
     subs = parser.add_subparsers(dest='action')
     subs.add_parser('check', help='Verificar Python e VirtualBox')
+    subs.add_parser('import-disk', help='Importar disco VMDK para uma VM nova')
     subs.add_parser('list', help='Listar máquinas virtuais')
     for action, description in [('status', 'Consultar status da VM'), ('start', 'Iniciar VM em segundo plano'), ('stop', 'Solicitar desligamento ACPI'), ('snapshot', 'Criar snapshot com VM desligada')]:
         sub = subs.add_parser(action, help=description)
@@ -49,6 +50,9 @@ def main(argv=None):
         except (ValueError, VMError, RuntimeError, OSError, EOFError, KeyboardInterrupt) as exc:
             print(f'Erro ({type(exc).__name__}): {str(exc) or chr(91) + 'sem detalhes; consulte a etapa registrada' + chr(93)}', file=sys.stderr)
             return 1
+    if argv and argv[0] == 'import-disk':
+        from .import_disk import main as import_disk_main
+        return import_disk_main(argv[1:])
     args = parser.parse_args(argv)
     try:
         if args.action is None:
