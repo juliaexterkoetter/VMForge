@@ -41,6 +41,31 @@ class ImportPlanTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.invoke()
 
+    def test_windows_reserved_names_rejected_before_virtualbox_queries(self):
+        reserved = ['CON', 'PRN', 'AUX', 'NUL']
+        reserved += [f'{prefix}{number}' for prefix in ('COM', 'LPT')
+                     for number in range(1, 10)]
+        for device in reserved:
+            for name in (device, device.lower(), device + '.lab'):
+                with self.subTest(name=name):
+                    with self.assertRaisesRegex(ValueError, 'Nome inválido para Windows'):
+                        self.invoke(name=name)
+                    self.vb.list_vms.assert_not_called()
+
+    def test_trailing_dot_rejected(self):
+        for name in ('Lab.', 'Lab..'):
+            with self.subTest(name=name):
+                with self.assertRaisesRegex(ValueError, 'Nome inválido para Windows'):
+                    self.invoke(name=name)
+                self.vb.list_vms.assert_not_called()
+
+    def test_non_reserved_names_remain_valid(self):
+        for name in ('Lab.v1', 'console', 'CON-lab', 'COM10', 'LPT10', 'a' * 64):
+            with self.subTest(name=name):
+                planned = self.invoke(name=name)
+                self.assertEqual(planned['target'], self.root / name)
+                self.assertFalse(planned['target'].exists())
+
     def test_existing_vm_rejected(self):
         self.vb.list_vms.return_value = [{'name': 'testtarget', 'uuid': 'abc'}]
         with self.assertRaises(ValueError):
