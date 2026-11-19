@@ -126,6 +126,9 @@ def main(argv=None):
         print('VM criada:', execute(p))
         print('A VM permanece DESLIGADA. Verifique o estado antes de iniciar.')
         return 0
+    except (EOFError, KeyboardInterrupt):
+        print('Importação interrompida pelo usuário. Verifique o estado antes de tentar novamente.')
+        return 1
     except (ValueError, VMError, OSError) as exc:
         print('Erro:', exc)
         return 1
