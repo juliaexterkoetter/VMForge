@@ -1,10 +1,13 @@
 """Read-only tests for VMDK import planning."""
+import io
 import tempfile
 import unittest
+from contextlib import redirect_stdout
 from pathlib import Path
 from unittest.mock import Mock, patch
 
 from vmforge.import_disk import plan
+from vmforge.cli import main
 from vmforge.protection import ProtectionConfig
 
 
@@ -51,6 +54,26 @@ class ImportPlanTests(unittest.TestCase):
         self.cfg = ProtectionConfig(frozenset(), frozenset({'testtarget'}), frozenset())
         with self.assertRaises(ValueError):
             self.invoke()
+
+
+class ImportCancellationTests(unittest.TestCase):
+    def test_interrupted_confirmation_does_not_execute(self):
+        argv = ['import-disk', '--source', 'trusted.vmdk', '--name', 'TestTarget',
+                '--basefolder', 'unused', '--hostonly', 'test-interface', '--execute']
+        planned = dict(name='TestTarget', source='trusted.vmdk', target='unused/TestTarget',
+                       hostonly='test-interface', ram=512, cpus=1)
+        for interruption in (EOFError, KeyboardInterrupt):
+            with self.subTest(interruption=interruption.__name__):
+                output = io.StringIO()
+                with patch('vmforge.import_disk.plan', return_value=planned), \
+                     patch('builtins.input', side_effect=interruption), \
+                     patch('vmforge.import_disk.execute') as execute, \
+                     redirect_stdout(output):
+                    result = main(argv)
+                self.assertEqual(result, 1)
+                self.assertIn('Importação interrompida pelo usuário.', output.getvalue())
+                self.assertNotIn('VM criada:', output.getvalue())
+                execute.assert_not_called()
 
 
 if __name__ == '__main__':
