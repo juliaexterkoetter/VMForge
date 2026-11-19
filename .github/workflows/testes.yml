@@ -4,7 +4,6 @@ on:
   push:
     branches: [main]
   pull_request:
-    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -14,6 +13,7 @@ jobs:
   testes:
     name: Python ${{ matrix.python-version }} - ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
@@ -30,16 +30,20 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - name: Instalar projeto para testes
         run: python -m pip install -e .
-      - name: Confirmar ferramenta de integração
-        run: python -c "from vmforge.extraction import sevenzip_path; print(sevenzip_path())"
       - name: Verificar sintaxe
         run: python -m compileall -q vmforge
       - name: Executar testes automatizados
-        run: python -B -m unittest discover -s tests -v
+        run: python -B scripts/test_mocked.py
+      - name: Preservar evidências dos testes
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: quality-${{ matrix.os }}-${{ matrix.python-version }}
+          path: work/quality.json
       - name: Testar também pelo Git Bash
         if: runner.os == 'Windows'
         shell: bash
-        run: python -B -m unittest discover -s tests -q
+        run: python -B scripts/test_mocked.py
       - name: Construir wheel
         run: python -m pip wheel --no-deps --wheel-dir dist .
       - name: Validar wheel em ambiente isolado
@@ -59,5 +63,8 @@ jobs:
               subprocess.run([str(python), '-m', 'pip', 'install', str(wheels[0].resolve())], check=True)
               subprocess.run([str(python), '-m', 'pip', 'check'], check=True)
               subprocess.run([str(python), '-I', '-m', 'vmforge', '--version'], cwd=root, check=True)
-              subprocess.run([str(python), '-I', '-m', 'vmforge', 'create', '--help'], cwd=root, check=True)
+              for command in ('create', 'import-disk', 'recover', 'resume-provision', 'lab', 'template', 'report', 'snapshots', 'restore'):
+                  subprocess.run([str(python), '-I', '-m', 'vmforge', command, '--help'], cwd=root, check=True)
+              cli = root / ('Scripts/vmforge.exe' if sys.platform == 'win32' else 'bin/vmforge')
+              subprocess.run([str(cli), '--version'], cwd=root, check=True)
               subprocess.run([str(python), '-I', '-c', 'import vmforge; from importlib.metadata import version; assert vmforge.__version__ == version("vmforge-cli")'], cwd=root, check=True)

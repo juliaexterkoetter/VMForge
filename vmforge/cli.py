@@ -27,12 +27,23 @@ def main(argv=None):
     subs = parser.add_subparsers(dest='action')
     subs.add_parser('check', help='Verificar Python e VirtualBox')
     subs.add_parser('import-disk', help='Importar disco VMDK para uma VM nova')
+    subs.add_parser('report', help='Inventário somente de leitura em texto, JSON ou Markdown')
+    subs.add_parser('template', help='Listar e consultar templates declarativos')
     subs.add_parser('list', help='Listar máquinas virtuais')
-    for action, description in [('status', 'Consultar status da VM'), ('start', 'Iniciar VM em segundo plano'), ('stop', 'Solicitar desligamento ACPI'), ('snapshot', 'Criar snapshot com VM desligada')]:
+    for action, description in [('status', 'Consultar status da VM'), ('start', 'Iniciar VM em segundo plano'), ('stop', 'Solicitar desligamento ACPI')]:
         sub = subs.add_parser(action, help=description)
         sub.add_argument('name', help='Nome ou UUID da VM')
-        if action == 'snapshot':
-            sub.add_argument('title', help='Nome do snapshot')
+    lab = subs.add_parser('lab', help='Snapshots e diagnostico de uma VM')
+    lab_subs = lab.add_subparsers(dest='lab_action', required=True)
+    for commands in (subs, lab_subs):
+        for action in ('snapshot', 'restore', 'diagnose', 'snapshots'):
+            sub = commands.add_parser(action, help=f'{action} de uma VM de laboratorio')
+            sub.add_argument('name', help='Nome ou UUID da VM')
+            if action == 'snapshot':
+                sub.add_argument('title', help='Nome do snapshot')
+            elif action == 'restore':
+                sub.add_argument('snapshot_uuid', help='UUID do snapshot a restaurar')
+                sub.add_argument('--dry-run', action='store_true', help='Planejar restauração sem alterar a VM')
     create = subs.add_parser('create', help='Assistente de criação de máquina virtual (Kali/VirtualBox)')
     create.add_argument('--dry-run', action='store_true', help='Mostrar plano sem modificar arquivos ou VMs')
     subs.add_parser('recover', help='Recuperar VM extraida com UUIDs validados')
@@ -40,6 +51,15 @@ def main(argv=None):
     subs.add_parser('resume-provision', help='Retomar SSH de VM de teste ja registrada')
     # Forward recovery-specific options without argparse consuming them.
     argv = sys.argv[1:] if argv is None else argv
+    if argv and argv[0] == 'report':
+        from .inventory import main as report_main
+        return report_main(argv[1:])
+    if argv and argv[0] == 'template':
+        from .templates import main as template_main
+        return template_main(argv[1:])
+    if argv and argv[0] == 'lab' and (len(argv) < 2 or argv[1] not in ('snapshot', 'restore', 'diagnose', 'snapshots')):
+        from .lab import main as lab_main
+        return lab_main(argv[1:])
     if argv and argv[0] in ('recover', 'purge-test', 'resume-provision'):
         from .recovery import recover_main, purge_main
         try:
@@ -54,6 +74,8 @@ def main(argv=None):
         from .import_disk import main as import_disk_main
         return import_disk_main(argv[1:])
     args = parser.parse_args(argv)
+    if args.action == 'lab':
+        args.action = args.lab_action
     try:
         if args.action is None:
             print('VMForge - Menu principal')
@@ -85,12 +107,38 @@ def main(argv=None):
             if not yes(f'Autoriza solicitar desligamento da VM {identity}?'):
                 return 0
             print(vb.shutdown(identity))
-        elif args.action == 'snapshot':
-            from .wizard import yes
+        elif args.action == 'diagnose':
+            import json
+            print(json.dumps(vb.diagnose(args.name), ensure_ascii=False, indent=2))
+        elif args.action == 'snapshots':
+            import json
+            from .appliance import canonical_uuid
+            info = vb.info(args.name)
+            identity = canonical_uuid(info.get('UUID'))
+            print(json.dumps({'snapshots': vb.list_snapshots(identity),
+                              'current': info.get('CurrentSnapshotUUID')}, indent=2))
+        elif args.action in ('snapshot', 'restore'):
             identity = vb.require_writable(args.name)
-            if not yes(f'Autoriza criar o snapshot {args.title} na VM {identity}?'):
+            if args.action == 'restore':
+                from .appliance import canonical_uuid
+                args.snapshot_uuid = canonical_uuid(args.snapshot_uuid)
+                print('AVISO: restaurar causa perda do estado atual da VM e das alteracoes posteriores ao snapshot.')
+                print(f'Snapshot de destino: {args.snapshot_uuid}')
+                if args.dry_run:
+                    if args.snapshot_uuid not in vb.list_snapshots(identity):
+                        raise VMError('Snapshot UUID não encontrado nesta VM.')
+                    print(f'Plano somente de leitura. VM: {identity}; estado: {vb.status(identity)}. Execução exige VM desligada e confirmação do UUID.')
+                    return 0
+            print(f'Operacao: {args.action}. VM: {identity}. A VM deve estar desligada; nao sera desligada automaticamente.')
+            if input('Digite o UUID completo da VM para confirmar (ou Enter para cancelar): ').strip() != identity:
+                print('Operacao cancelada. Nenhuma alteracao solicitada.')
                 return 0
-            print(vb.snapshot(identity, args.title))
+            if args.action == 'restore':
+                vb.restore(identity, args.snapshot_uuid)
+                print('Restore concluido.')
+            else:
+                vb.snapshot(identity, args.title)
+                print('Snapshot criado.')
         return 0
     except (ValueError, VMError, RuntimeError, OSError, EOFError, KeyboardInterrupt) as exc:
         print(f'Erro ({type(exc).__name__}): {str(exc) or chr(91) + 'sem detalhes; consulte a etapa registrada' + chr(93)}', file=sys.stderr)

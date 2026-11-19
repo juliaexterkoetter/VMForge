@@ -1,5 +1,10 @@
 # VMForge
 
+Esta branch consolida auditorias e acrescenta laboratórios, templates e inventário.
+Consulte [comandos novos](docs/COMANDOS_EVOLUCAO.md) e
+[evidências, limitações e pendências](docs/EVOLUCAO_E_AUDITORIA.md).
+Não representa conclusão de todas as modalidades planejadas nem validação real.
+
 CLI em português para preparar uma **nova VM Kali Linux no Oracle VirtualBox**, com interface textual, menus numerados e operação pelo teclado.
 
 **Estado: candidato 0.2.0rc1.** Testes automatizados, extração de arquivos pequenos e simulação foram validados. A criação real ponta a ponta e a avaliação manual com NVDA ainda estão pendentes. Não trate esta versão como certificada para produção.
@@ -68,6 +73,42 @@ ssh -p 2223 kali@127.0.0.1
 | `start NOME_OU_UUID` | Inicia em modo headless |
 | `stop NOME_OU_UUID` | Solicita desligamento ACPI após confirmação |
 | `snapshot NOME_OU_UUID TITULO` | Cria snapshot com VM desligada, após confirmação |
+
+## Snapshots, restore e diagnóstico de laboratório
+
+```text
+python -m vmforge lab diagnose NOME_OU_UUID
+python -m vmforge lab snapshot NOME_OU_UUID TITULO
+python -m vmforge lab restore NOME_OU_UUID UUID_DO_SNAPSHOT
+```
+
+Os mesmos comandos funcionam sem o prefixo `lab` (inclusive o comando
+`snapshot` existente). Snapshot e restore exigem digitar o UUID completo da
+VM exibido no terminal; responder apenas `sim` não autoriza a operação.
+Enter ou outro texto cancela sem solicitar alterações. EOF e Ctrl+C encerram
+com erro, sem iniciar a alteração se ocorrerem durante a confirmação.
+
+**Restore perde o estado atual e as alterações posteriores ao snapshot.**
+O aviso e o UUID do snapshot aparecem antes da confirmação. O snapshot deve
+pertencer à VM selecionada; somente UUIDs são aceitos para evitar nomes
+ambíguos. Consulte os UUIDs com `lab diagnose`. Ambas as alterações exigem
+estado `poweroff`, proteção local válida e VM não protegida, inclusive após
+renomeação. Não há desligamento automático, poweroff forçado, início automático
+ou tentativa automática de repetir uma operação que falhou.
+
+`diagnose` imprime JSON somente de leitura: UUID, nome, estado, memória,
+CPUs, snapshot atual quando informado pelo VirtualBox, UUIDs dos snapshots
+e situação da proteção. Pode consultar VMs protegidas. Configuração de
+proteção ausente/inválida aparece como indisponível; alterações permanecem
+bloqueadas. Falhas de consulta retornam erro, sem anunciar diagnóstico concluído.
+O relatório não coleta logs, credenciais, arquivos ou saúde interna do convidado.
+
+Se houver erro, timeout ou interrupção depois do início de uma alteração,
+o resultado no VirtualBox pode ser indeterminado. Consulte o diagnóstico antes
+de decidir repetir; não há rollback automático. As verificações prévias não
+substituem o controle de concorrência do VirtualBox: evite alterar a mesma VM
+por outro processo durante a operação. Estes fluxos foram testados com fakes,
+sem validação em VMs reais.
 
 ## Extração e segurança
 
@@ -141,3 +182,7 @@ Para relatar vulnerabilidades, consulte [SECURITY.md](SECURITY.md).
 ## Licença
 
 Copyright © 2026 Júlia Schaden Exterkoetter. Licenciado sob Apache License, Version 2.0. Consulte [LICENSE](LICENSE), [NOTICE](NOTICE) e [COPYRIGHT.md](COPYRIGHT.md).
+
+## Laboratorios multi-VM
+
+Os comandos `vmforge lab plan/create/start/status/stop` usam manifesto JSON versionado, UUIDs persistidos e rede interna exclusiva. Veja [manifesto, comandos e tratamento de falhas](docs/labs.md).

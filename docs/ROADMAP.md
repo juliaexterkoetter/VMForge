@@ -1,5 +1,11 @@
 # Roadmap VMForge
 
+O estado detalhado da branch de consolidação está em
+[EVOLUCAO_E_AUDITORIA.md](EVOLUCAO_E_AUDITORIA.md). Há implementação experimental
+de VMDK, laboratórios internos, templates, snapshots e inventário. Host-only
+declarativa multi-VM, diário de importação, diagnósticos de conectividade e
+validação humana permanecem pendentes. Nenhuma nova versão foi publicada.
+
 ## Candidato 0.2.0rc1
 
 Implementado e coberto por testes:
