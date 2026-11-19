@@ -85,6 +85,8 @@ class VirtualBox:
 
             info = self.info(target)
             identity = canonical_uuid(info.get("UUID"))
+            if supplied_uuid and supplied_uuid != identity:
+                raise VMError('UUID retornado difere do solicitado; operação bloqueada.')
 
             if protection.protects_vm(
                 uuid_value=identity,

@@ -61,7 +61,9 @@ ocorre antes do registro; falhas posteriores partem da rede desativada ou
 Host-only. Não repita sem inspecionar o destino e o registro.
 
 A pasta `source-copy` é preservada também no sucesso; reserve espaço para ela
-e para o VDI. Não há pré-reserva de espaço nem limpeza automática.
+e para o VDI. O plano verifica espaço para a cópia, capacidade lógica do clone
+e margem de 512 MiB; a execução revalida. Não há pré-reserva de espaço nem
+limpeza automática. Limites: 128 extents e capacidade total de 128 GiB.
 
 ## Testes
 

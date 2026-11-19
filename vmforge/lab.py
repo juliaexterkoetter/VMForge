@@ -13,6 +13,7 @@ from .appliance import canonical_uuid, isolate_new_image, validate_appliance, wr
 from .extraction import extract_archive
 from .protection import require_unprotected
 from .providers.virtualbox import VirtualBox, VMError
+from .recovery import _no_links
 
 
 ERRORS = (ValueError, RuntimeError, OSError, EOFError, KeyboardInterrupt)
@@ -72,7 +73,7 @@ def plan(path):
 def save(path, data):
     """Replace atomically; never continue external mutations if journaling fails."""
     temp = path.with_suffix('.tmp')
-    with temp.open('w', encoding='utf-8') as stream:
+    with temp.open('x', encoding='utf-8') as stream:
         json.dump(data, stream, indent=2, ensure_ascii=False)
         stream.flush()
         os.fsync(stream.fileno())
@@ -155,6 +156,8 @@ def create(spec, directory, vb):
 
 
 def load_state(directory):
+    _no_links(directory)
+    _no_links(directory / 'lab.json')
     data = read_json(directory / 'lab.json')
     fields(data, ('version', 'name', 'uuid', 'network', 'vms'))
     if type(data['version']) is not int or data['version'] != 1:
@@ -243,7 +246,7 @@ def operate(action, directory, vb):
 def main(argv=None):
     parser = argparse.ArgumentParser(prog='vmforge lab')
     subs = parser.add_subparsers(dest='action', required=True)
-    for action in ('plan', 'create', 'start', 'status', 'stop'):
+    for action in ('plan', 'create', 'start', 'status', 'stop', 'inspect', 'list'):
         sub = subs.add_parser(action)
         sub.add_argument('manifest' if action in ('plan', 'create') else 'directory', type=Path)
         if action == 'create':
@@ -252,12 +255,23 @@ def main(argv=None):
             sub.add_argument('--yes', action='store_true', help='Confirmar explicitamente a operacao')
     args = parser.parse_args(argv)
     try:
+        if args.action in ('inspect', 'list'):
+            directory = args.directory.resolve()
+            if args.action == 'inspect':
+                print(json.dumps(load_state(directory), ensure_ascii=False, indent=2))
+            else:
+                for child in sorted(directory.iterdir()):
+                    if child.is_dir() and not child.is_symlink() and not child.is_junction() and (child / 'lab.json').is_file():
+                        state = load_state(child.resolve())
+                        print(f'{state["name"]}: {state["uuid"]}; {child}')
+            return 0
         if args.action in ('plan', 'create'):
             spec = plan(args.manifest)
             print(json.dumps(spec, indent=2, ensure_ascii=False))
             print('Rede: interna exclusiva (sem NAT, bridge ou acesso ao host).')
             if args.action == 'plan':
                 return 0
+        _no_links(args.directory)
         directory = args.directory.resolve()
         if args.action != 'status':
             if args.action != 'create':

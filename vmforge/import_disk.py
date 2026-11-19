@@ -5,6 +5,7 @@ Does not modify or unregister existing VMs or the source VMDK.
 """
 import argparse
 import hashlib
+import shutil
 import struct
 import uuid
 import xml.etree.ElementTree as ET
@@ -113,6 +114,8 @@ def _vmdk(source):
         raise ValueError('VMDK invalido ou encadeado; pais/snapshots nao sao aceitos.')
     kind = fields.get('createType')
     allowed = {'monolithicSparse', 'monolithicFlat', 'twoGbMaxExtentSparse', 'twoGbMaxExtentFlat'}
+    if len(extents) > 128 or sum(int(e[0]) for e in extents) * 512 > 128 * 1024**3:
+        raise ValueError('Disco excede o limite de 128 extents ou 128 GiB.')
     if kind not in allowed or embedded != (kind == 'monolithicSparse'):
         raise ValueError('Tipo VMDK nao suportado (raw devices tambem sao recusados).')
     if kind.startswith('monolithic') and len(extents) != 1:
@@ -148,6 +151,18 @@ def _unchanged(files):
     for path, digest in files.items():
         if _digest(path) != digest:
             raise ValueError('Origem alterada desde o planejamento: ' + str(path))
+
+
+def _required_space(files):
+    physical = sum(path.stat().st_size for path in files)
+    logical = 0
+    for path in files:
+        with path.open('rb') as stream:
+            header = stream.read(512)
+        logical += (struct.unpack_from('<Q', header, 12)[0] * 512
+                    if len(header) == 512 and header[:4] == b'KDMV'
+                    else path.stat().st_size)
+    return physical + logical + 512 * 1024**2
 
 
 def _disable_network(config, identity, name):
@@ -224,8 +239,11 @@ def plan(source, name, basefolder, hostonly, ram=512, cpus=1, vb=None):
     if not base.is_dir():
         raise ValueError("Pasta-base inexistente.")
     target = base / name
-    if target.exists() or target.is_symlink():
+    if target.exists() or target.is_symlink() or target.is_junction():
         raise ValueError(f"Destino já existe, não será sobrescrito: {target}")
+    required = _required_space(files)
+    if shutil.disk_usage(base).free < required:
+        raise ValueError(f'Espaço insuficiente: necessários pelo menos {required} bytes.')
     if any(v['name'].casefold() == name.casefold() for v in vb.list_vms()):
         raise ValueError("Já existe VM registrada com este nome.")
     if not hostonly or '\n' in hostonly or '\r' in hostonly:
@@ -234,7 +252,7 @@ def plan(source, name, basefolder, hostonly, ram=512, cpus=1, vb=None):
     names = re.findall(r'^Name:\s*(.+?)\s*$', interfaces, flags=re.MULTILINE)
     if hostonly not in names:
         raise ValueError("Interface Host-only não encontrada.")
-    return {'source': src, 'files': files, 'name': name, 'base': base, 'target': target,
+    return {'source': src, 'files': files, 'required_bytes': required, 'name': name, 'base': base, 'target': target,
             'hostonly': hostonly, 'ram': ram, 'cpus': cpus, 'binary': vb.binary}
 
 
@@ -288,6 +306,11 @@ def execute(p):
               '--format', 'VDI', '--variant', 'Standard', timeout=1200)
         _independent_vdi(target_disk)
         _unchanged(p['files'])
+        with target_disk.open('rb') as stream:
+            stream.seek(392)
+            disk_uuid = str(uuid.UUID(bytes_le=stream.read(16)))
+        if disk_uuid in _call(binary, 'list', 'hdds').lower():
+            raise VMError('UUID do clone já registrado; estado parcial preservado.')
         stage = 'registervm'
         if load_protection().protects_vm(uuid_value=identity, name=name):
             raise VMError('Identidade protegida.')

@@ -89,7 +89,7 @@ def recover_main(argv=None):
 
 
 def _norm_cfg_path(raw):
-    return str(Path(raw.replace(chr(92) * 2, chr(92))).resolve()).casefold()
+    return str(Path(str(raw).replace(chr(92) * 2, chr(92))).resolve()).casefold()
 
 
 def purge_main(argv=None):
@@ -127,6 +127,17 @@ def purge_main(argv=None):
     if typed != f'EXCLUIR {target}':
         print('Exclusao cancelada.')
         return 0
+    # Confirmation may take arbitrarily long: inspect the exact identity again.
+    if vb.require_writable(target) != target:
+        raise ValueError('Identidade mudou após confirmação.')
+    current = vb.info(target)
+    if (current.get('name') != info.get('name') or current.get('VMState') != 'poweroff'
+            or _norm_cfg_path(current.get('CfgFile', '')) != _norm_cfg_path(path)):
+        raise ValueError('Estado ou configuração mudou após confirmação.')
+    _no_links(path)
+    appliance = validate_appliance(path)
+    if appliance['uuid'] != target or not appliance['disk_path'].resolve().is_relative_to(root):
+        raise ValueError('Disco ou identidade fora da cópia de testes.')
     # Controlled exception: provider intentionally forbids unregistervm.
     cp = subprocess.run([str(vb.binary), 'unregistervm', target, '--delete'],
                         capture_output=True, text=True, errors='replace', timeout=600)
