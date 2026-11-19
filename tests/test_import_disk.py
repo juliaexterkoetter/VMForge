@@ -7,7 +7,7 @@ import uuid
 import xml.etree.ElementTree as ET
 import tempfile
 import unittest
-from contextlib import redirect_stdout
+from contextlib import redirect_stdout, redirect_stderr
 from pathlib import Path
 from unittest.mock import Mock, patch
 
@@ -102,7 +102,7 @@ class ImportCancellationTests(unittest.TestCase):
                 with patch('vmforge.import_disk.plan', return_value=planned), \
                      patch('builtins.input', side_effect=interruption), \
                      patch('vmforge.import_disk.execute') as execute, \
-                     redirect_stdout(output):
+                     redirect_stdout(output), redirect_stderr(output):
                     result = main(argv)
                 self.assertEqual(result, 1)
                 self.assertIn('Importação interrompida pelo usuário.', output.getvalue())

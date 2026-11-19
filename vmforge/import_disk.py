@@ -10,6 +10,7 @@ import uuid
 import xml.etree.ElementTree as ET
 import re
 import subprocess
+import sys
 from pathlib import Path
 
 from .providers.virtualbox import VirtualBox, VMError
@@ -23,6 +24,18 @@ _WINDOWS_DEVICE_NAMES = frozenset({
     *(f'COM{i}' for i in range(1, 10)),
     *(f'LPT{i}' for i in range(1, 10)),
 })
+
+
+class _PortugueseFormatter(argparse.HelpFormatter):
+    def add_usage(self, usage, actions, groups, prefix=None):
+        super().add_usage(usage, actions, groups, prefix or 'uso: ')
+
+
+class _ImportParser(argparse.ArgumentParser):
+    def error(self, message):
+        self.print_usage(sys.stderr)
+        self.exit(2, 'Erro: argumentos inválidos ou obrigatórios ausentes. '
+                  'Consulte --help para opções, tipos e limites.\n')
 
 
 def _call(binary, *args, timeout=300):
@@ -296,7 +309,7 @@ def execute(p):
         _call(binary, 'storageattach', identity, '--storagectl', 'SATA', '--port', '0',
               '--device', '0', '--type', 'hdd', '--medium', target_disk)
         guard(isolated=True)
-    except Exception as exc:
+    except (Exception, KeyboardInterrupt) as exc:
         raise VMError(f'Falha em {stage} da NOVA VM {name} ({identity}). Estado parcial preservado; '
                       f'inspecione antes de repetir. Erro: {exc}') from exc
     finally:
@@ -308,14 +321,23 @@ def execute(p):
 
 
 def main(argv=None):
-    parser = argparse.ArgumentParser(description='Importação conservadora de VMDK para VM nova e Host-only')
+    parser = _ImportParser(
+        prog='vmforge import-disk', add_help=False,
+        formatter_class=_PortugueseFormatter,
+        description='Importação conservadora de VMDK para VM nova e Host-only',
+        epilog='Retornos: 0 = simulação, cancelamento ou sucesso; '
+               '1 = falha ou interrupção; 2 = argumentos inválidos.')
+    parser._optionals.title = 'opções'
+    parser.add_argument('-h', '--help', action='help', help='Mostrar esta ajuda e sair')
     parser.add_argument('--source', required=True, help='Caminho do .vmdk confiável')
     parser.add_argument('--name', required=True, help='Novo nome da VM')
     parser.add_argument('--basefolder', required=True, help='Pasta-base EXISTENTE das VMs')
     parser.add_argument('--hostonly', required=True, help='Nome da interface Host-only existente')
-    parser.add_argument('--memory', type=int, default=512)
-    parser.add_argument('--cpus', type=int, default=1)
-    parser.add_argument('--execute', action='store_true', help='Executar após confirmação; sem flag só simula')
+    parser.add_argument('--memory', type=int, default=512, help='RAM em MB, de 256 a 131072 (padrão: 512)')
+    parser.add_argument('--cpus', type=int, default=1, help='Quantidade de CPUs, de 1 a 64 (padrão: 1)')
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument('--dry-run', action='store_true', help='Simular sem escrita (modo padrão)')
+    mode.add_argument('--execute', action='store_true', help='Executar após confirmação; sem flag só simula')
     args = parser.parse_args(argv)
     try:
         p = plan(args.source, args.name, args.basefolder, args.hostonly,
@@ -339,10 +361,10 @@ def main(argv=None):
         print('A VM permanece DESLIGADA. Verifique o estado antes de iniciar.')
         return 0
     except (EOFError, KeyboardInterrupt):
-        print('Importação interrompida pelo usuário. Verifique o estado antes de tentar novamente.')
+        print('Importação interrompida pelo usuário. Verifique o estado antes de tentar novamente.', file=sys.stderr)
         return 1
-    except (ValueError, VMError, OSError) as exc:
-        print('Erro:', exc)
+    except (ValueError, RuntimeError, OSError) as exc:
+        print('Erro:', exc, file=sys.stderr)
         return 1
 
 
