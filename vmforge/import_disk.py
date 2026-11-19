@@ -13,6 +13,11 @@ from .protection import load_protection
 
 
 _NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$")
+_WINDOWS_DEVICE_NAMES = frozenset({
+    'CON', 'PRN', 'AUX', 'NUL',
+    *(f'COM{i}' for i in range(1, 10)),
+    *(f'LPT{i}' for i in range(1, 10)),
+})
 
 
 def _call(binary, *args, timeout=300):
@@ -33,6 +38,9 @@ def plan(source, name, basefolder, hostonly, ram=512, cpus=1, vb=None):
     protection = load_protection()  # fail closed if missing/invalid
     if not _NAME.fullmatch(name) or name in ('.', '..'):
         raise ValueError("Nome inválido (use letras, números, ponto, hífen ou sublinhado).")
+    # The VM name becomes both a directory and a disk filename, including on Windows.
+    if name.endswith('.') or name.split('.')[0].upper() in _WINDOWS_DEVICE_NAMES:
+        raise ValueError("Nome inválido para Windows: não use nomes de dispositivo reservados ou ponto final.")
     if protection.protects_vm(name=name):
         raise ValueError("Nome de VM protegido.")
     if not (256 <= ram <= 131072 and 1 <= cpus <= 64):

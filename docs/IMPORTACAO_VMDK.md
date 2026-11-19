@@ -23,6 +23,8 @@ A importação exige o arquivo de proteção local `~/.vmforge/config.json` defi
 
 ## Simulação (não cria nada)
 
+O nome da nova VM deve ter de 1 a 64 caracteres, começar com letra ou número e conter somente letras ASCII, números, ponto, hífen ou sublinhado. Para manter os caminhos compatíveis com Windows, nomes de dispositivo reservados (como `CON`, `NUL`, `COM1` e `LPT1`, inclusive com extensão) e nomes terminados em ponto são recusados também na simulação.
+
 No Git Bash, usando caminhos com barras normais ou caminhos Windows entre aspas:
 
 ```bash
