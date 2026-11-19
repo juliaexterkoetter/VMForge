@@ -58,8 +58,12 @@ def main(argv=None):
         if args.action is None:
             print('VMForge - Menu principal')
             print('1. Criar máquina virtual\n2. Listar máquinas virtuais\n3. Verificar requisitos\n0. Sair')
-            choice = input('Escolha: ').strip()
-            return {'1': lambda: create_wizard(), '2': lambda: main(['list']), '3': lambda: main(['check']), '0': lambda: 0}.get(choice, lambda: 2)()
+            actions = {'1': lambda: create_wizard(), '2': lambda: main(['list']), '3': lambda: main(['check']), '0': lambda: 0}
+            while True:
+                choice = input('Escolha: ').strip()
+                if choice in actions:
+                    return actions[choice]()
+                print('Opção inválida. Digite 1, 2, 3 ou 0 para sair.')
         if args.action == 'check':
             return check()
         if args.action == 'create':
